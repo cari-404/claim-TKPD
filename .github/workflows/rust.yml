@@ -78,7 +78,7 @@ jobs:
       run: | 
         wget ${{ matrix.platform.dep }}
         tar -xf ${{ matrix.platform.dep_name }}
-        cp ${{ matrix.platform.dep_name_folder }}/* bin
+        cp -r ${{ matrix.platform.dep_name_folder }}/* bin
 
     - name: Add dependency
       run: | 
