@@ -1,0 +1,142 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.platform.os_name }} with rust ${{ matrix.toolchain }}
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - os_name: Android-aarch64
+            os: ubuntu-20.04
+            target: aarch64-linux-android
+            bin: claim-linux-android-arm64
+            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-android-arm64.tar.xz
+          - os_name: Linux-aarch64
+            os: ubuntu-20.04
+            target: aarch64-unknown-linux-gnu
+            bin: claim-linux-arm64
+            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-linux-arm64.tar.xz
+          - os_name: Linux-x86_64
+            os: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
+            bin: claim-linux-amd64
+            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-linux-x64.tar.xz
+          - os_name: Linux-i686
+            os: ubuntu-20.04
+            target: i686-unknown-linux-gnu
+            bin: claim-linux-i686
+            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-linux-x86.tar.xz
+          - os_name: Windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: claim-amd64.exe
+            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x64.zip
+          - os_name: Windows-i686
+            os: windows-latest
+            target: i686-pc-windows-msvc
+            bin: claim-i686.exe
+            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x86.zip
+          - os_name: Windows-i586
+            os: windows-latest
+            target: i586-pc-windows-msvc
+            bin: claim-i586.exe
+            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x86.zip
+        toolchain:
+          - stable
+    steps:
+    - uses: actions/checkout@v3
+    - name: Add dependency
+      if: matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686'  && matrix.platform.os_name != 'Windows-i586'
+      run: | 
+        wget ${{ matrix.platform.dep }}
+        tar -xf ${{ matrix.platform.dep }} -C a
+        cp a/* bin
+
+    - name: Add dependency
+      if: matrix.platform.os_name == 'Windows-x86_64' && matrix.platform.os_name == 'Windows-i686'  && matrix.platform.os_name == 'Windows-i586'
+      run: | 
+        wget ${{ matrix.platform.dep }}
+        unzip ${{ matrix.platform.dep }} -d a
+        cp a/* bin
+
+    - name: Dependency
+      if: matrix.platform.os_name == 'Linux-i686'
+      run: |
+        sudo dpkg --add-architecture i386
+        sudo apt update
+        sudo apt install gcc-mingw-w64 libc6-dev-i386 libssl-dev:i386 -y
+
+    - name: Convert
+      if: matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686'  && matrix.platform.os_name != 'Windows-i586' && matrix.platform.os_name != 'Linux-x86_64'
+      run: |
+        rm Cargo.toml
+        mv cross.toml Cargo.toml
+    - name: Build binary
+      uses: houseabsolute/actions-rust-cross@v0
+      if: matrix.platform.os_name != 'Android-aarch64' && matrix.platform.os_name != 'Windows-i586'
+      with:
+        command: "build"
+        target: ${{ matrix.platform.target }}
+        toolchain: ${{ matrix.toolchain }}
+        args: "--release"
+        strip: true
+    - name: Build binary
+      if: matrix.platform.os_name == 'Android-aarch64' && matrix.platform.os_name != 'Windows-i586'
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+          target: ${{ matrix.platform.target }}
+
+    - name: install
+      if: matrix.platform.os_name == 'Android-aarch64'
+      run: |
+        cargo install cargo-ndk
+        rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
+        cargo ndk -t armeabi-v7a -t arm64-v8a build --release
+
+    - name: install
+      if: matrix.platform.os_name == 'Windows-i586'
+      run: |
+        rustup target add i586-pc-windows-msvc
+        cargo add windows
+        cargo build --release --target i586-pc-windows-msvc
+
+    - name: Run tests
+      run: ls -R
+
+    - name: Rename binary (linux and macos)
+      run: mv target/${{ matrix.platform.target }}/release/claim target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
+      if: matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686' && matrix.platform.os_name != 'Windows-i586'
+    - name: Rename binary (windows)
+      run: mv target/${{ matrix.platform.target }}/release/claim.exe target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
+      if: matrix.platform.os_name == 'Windows-x86_64'
+    - name: Rename binary (windows)
+      run: mv target/${{ matrix.platform.target }}/release/claim.exe target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
+      if: matrix.platform.os_name == 'Windows-i686'
+    - name: Rename binary (windows)
+      run: mv target/${{ matrix.platform.target }}/release/claim.exe target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
+      if: matrix.platform.os_name == 'Windows-i586'
+    - name: Generate SHA-256
+      run: shasum -a 256 target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} | cut -d ' ' -f 1 > target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}.sha256
+    - name: Release binary and SHA-256 checksum to GitHub
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v0.1.0
+        files: |
+          target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
