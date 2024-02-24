@@ -92,6 +92,7 @@ jobs:
         Invoke-WebRequest -Uri "${{ matrix.platform.dep }}" -OutFile "${{ matrix.platform.dep_name }}"
         unzip ${{ matrix.platform.dep_name }}
         cp ${{ matrix.platform.dep_name_folder }}/* bin
+        ls -R
 
     - name: Add dependency(Windows-i686)
       if: matrix.platform.os_name == 'Windows-i686' 
@@ -99,6 +100,7 @@ jobs:
         Invoke-WebRequest -Uri "${{ matrix.platform.dep }}" -OutFile "${{ matrix.platform.dep_name }}"
         unzip ${{ matrix.platform.dep_name }}
         cp ${{ matrix.platform.dep_name_folder }}/* bin
+        ls -R
 
     - name: Add dependency(Windows-i586)
       if: matrix.platform.os_name == 'Windows-i586' 
@@ -106,6 +108,7 @@ jobs:
         Invoke-WebRequest -Uri "${{ matrix.platform.dep }}" -OutFile "${{ matrix.platform.dep_name }}"
         unzip ${{ matrix.platform.dep_name }}
         cp ${{ matrix.platform.dep_name_folder }}/* bin
+        ls -R
 
     - name: Dependency
       if: matrix.platform.os_name == 'Linux-i686'
