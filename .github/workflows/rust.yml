@@ -70,12 +70,13 @@ jobs:
       if: matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686'  && matrix.platform.os_name != 'Windows-i586'
       run: | 
         wget ${{ matrix.platform.dep }}
+        mkdir a
         tar -xf ${{ matrix.platform.dep_name }} -C a
         cp a/* bin
 
     - name: Add dependency
       run: | 
-        wget ${{ matrix.platform.dep }}
+        Invoke-WebRequest -Uri "${{ matrix.platform.dep }}" -OutFile "${{ matrix.platform.dep_name }}"
         unzip ${{ matrix.platform.dep_name }} -d a
         cp a/* bin
 
