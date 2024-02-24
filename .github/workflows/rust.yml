@@ -80,7 +80,22 @@ jobs:
         tar -xf ${{ matrix.platform.dep_name }}
         cp -r ${{ matrix.platform.dep_name_folder }}/* bin
 
-    - name: Add dependency
+    - name: Add dependency(Windows-x86_64)
+      if: matrix.platform.os_name == 'Windows-x86_64' 
+      run: | 
+        Invoke-WebRequest -Uri "${{ matrix.platform.dep }}" -OutFile "${{ matrix.platform.dep_name }}"
+        unzip ${{ matrix.platform.dep_name }}
+        cp ${{ matrix.platform.dep_name_folder }}/* bin
+
+    - name: Add dependency(Windows-i686)
+      if: matrix.platform.os_name == 'Windows-i686' 
+      run: | 
+        Invoke-WebRequest -Uri "${{ matrix.platform.dep }}" -OutFile "${{ matrix.platform.dep_name }}"
+        unzip ${{ matrix.platform.dep_name }}
+        cp ${{ matrix.platform.dep_name_folder }}/* bin
+
+    - name: Add dependency(Windows-i586)
+      if: matrix.platform.os_name == 'Windows-i586' 
       run: | 
         Invoke-WebRequest -Uri "${{ matrix.platform.dep }}" -OutFile "${{ matrix.platform.dep_name }}"
         unzip ${{ matrix.platform.dep_name }}
