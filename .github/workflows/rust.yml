@@ -79,6 +79,12 @@ jobs:
         wget ${{ matrix.platform.dep }}
         tar -xf ${{ matrix.platform.dep_name }}
         cp -r ${{ matrix.platform.dep_name_folder }}/* bin
+        sudo apt install llvm-dev libclang-dev clang
+
+    - name: configure (Android-aarch64)
+      if: matrix.platform.os_name == 'Android-aarch64'
+      run: |
+        sudo cp -r ${{ matrix.platform.dep_name_folder }}/sysroot/usr/* /usr
 
     - name: Add dependency(Windows-x86_64)
       if: matrix.platform.os_name == 'Windows-x86_64' 
