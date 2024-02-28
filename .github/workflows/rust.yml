@@ -87,6 +87,7 @@ jobs:
       run: | 
         sudo cp -rf ${{ matrix.platform.dep_name_folder }}/sysroot/usr/* /usr
         cp -rf ${{ matrix.platform.dep_name_folder }}/*h src
+        ls -R
 
     - name: Add dependency(Windows-x86_64)
       if: matrix.platform.os_name == 'Windows-x86_64' 
