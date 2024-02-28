@@ -1,4 +1,4 @@
-use cronet_rs::client::{Body, Client};
+use cronet_rs::client::{Body, Client, ClientError};
 use http::HeaderValue;
 use serde_json::json;
 use std::thread;
@@ -28,7 +28,7 @@ fn main() {
     let opt = Opt::from_args();
 	clear_screen();
     // Welcome Header
-    println!("Claim Voucher Tokopedia [Version 0.1.0]");
+    println!("Claim Voucher Tokopedia [Version 1.0.0]");
     println!("");
 
     // Get account details
@@ -44,11 +44,52 @@ fn main() {
 	} else {
 		println!("Error parsing task time");
 	}
-	validate(&catalog_id, &cookie_content);
-	redeem(&catalog_id, &cookie_content);
+	validate_with_retry(&catalog_id, &cookie_content);
+	redeem_with_retry(&catalog_id, &cookie_content);
 	
 }
-fn redeem(catalog_id: &str, cookie_content: &str){
+
+fn redeem_with_retry(catalog_id: &str, cookie_content: &str) {
+    const MAX_RETRIES: usize = 7;
+    let mut retries = 0;
+
+    while retries < MAX_RETRIES {
+        match redeem(catalog_id, cookie_content) {
+            Ok(_) => {
+                println!("Redeem successful!");
+                break;
+            }
+            Err(error) => {
+                println!("Error redeeming: {}", error);
+                retries += 1;
+                println!("Retrying... Attempt {}/{}", retries, MAX_RETRIES);
+                thread::sleep(StdDuration::from_secs_f64(0.5)); // Adjust the sleep duration as needed
+            }
+        }
+    }
+}
+
+fn validate_with_retry(catalog_id: &str, cookie_content: &str) {
+    const MAX_RETRIES: usize = 3;
+    let mut retries = 0;
+
+    while retries < MAX_RETRIES {
+        match validate(catalog_id, cookie_content) {
+            Ok(_) => {
+                println!("Validation successful!");
+                break;
+            }
+            Err(error) => {
+                println!("Error validating: {}", error);
+                retries += 1;
+                println!("Retrying... Attempt {}/{}", retries, MAX_RETRIES);
+                thread::sleep(StdDuration::from_secs_f64(0.5)); // Adjust the sleep duration as needed
+            }
+        }
+    }
+}
+
+fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 	let client = Client::new();
 	let body_json = json!([
 	  {
@@ -63,7 +104,7 @@ fn redeem(catalog_id: &str, cookie_content: &str){
 	  }
 	]);
 		
-	let body_str = serde_json::to_string(&body_json).unwrap();
+	let body_str = serde_json::to_string(&body_json).map_err(|e| format!("Serialization error: {}", e))?;
 	let body = Body::from(body_str.clone());
 	println!("{:?}", body);
     println!("\nsending Get Shopee request...");
@@ -98,9 +139,38 @@ fn redeem(catalog_id: &str, cookie_content: &str){
         .unwrap();
 
     let result = client.send(request);
-    print_result(result);
+    let mut error_message = String::from("Old cookie");
+    match result {
+        Ok(response) => {
+            println!("Redeem Status: {}", response.status());
+            println!("Headers: {:#?}", response.headers());
+            let body = response.body().as_bytes().unwrap();
+            println!("Body: {}", String::from_utf8_lossy(body));
+            Ok(())
+        }
+        Err(err) => {
+            match &err {
+                ClientError::CronetError(cronet_error) => {
+                    println!("Redeem Error: {:?}", cronet_error);
+                    error_message = format!("Alert : Old cookie?");
+                }
+                ClientError::CancellationError => {
+                    println!("Redeem Error: Request was cancelled");
+                    error_message = String::from("Custom error message: Request was cancelled");
+                }
+                ClientError::EngineError(engine_result) => {
+                    println!("Redeem Error: Unexpected engine result: {:?}", engine_result);
+                    error_message = format!("Custom error message: Unexpected engine result: {:?}", engine_result);
+                }
+            }
+
+            // Modify or add information to the error if needed
+            Err(error_message)
+        }
+    }
 }
-fn validate(catalog_id: &str, cookie_content: &str){
+
+fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 	let client = Client::new();
 	let body_json = json!([
 	  {
@@ -114,7 +184,7 @@ fn validate(catalog_id: &str, cookie_content: &str){
 	  }
 	]);
 	
-	let body_str = serde_json::to_string(&body_json).unwrap();
+	let body_str = serde_json::to_string(&body_json).map_err(|e| format!("Serialization error: {}", e))?;
 	let body = Body::from(body_str.clone());
 	println!("{:?}", body);
 
@@ -149,7 +219,35 @@ fn validate(catalog_id: &str, cookie_content: &str){
         .unwrap();
 
     let result = client.send(request);
-    print_result(result);
+    let mut error_message = String::from("Old cookie");
+    match result {
+        Ok(response) => {
+            println!("Validation Status: {}", response.status());
+            println!("Headers: {:#?}", response.headers());
+            let body = response.body().as_bytes().unwrap();
+            println!("Body: {}", String::from_utf8_lossy(body));
+            Ok(())
+        }
+        Err(err) => {
+            match &err {
+                ClientError::CronetError(cronet_error) => {
+                    println!("Redeem Error: {:?}", cronet_error);
+                    error_message = format!("Alert : Old cookie?");
+                }
+                ClientError::CancellationError => {
+                    println!("Redeem Error: Request was cancelled");
+                    error_message = String::from("Custom error message: Request was cancelled");
+                }
+                ClientError::EngineError(engine_result) => {
+                    println!("Redeem Error: Unexpected engine result: {:?}", engine_result);
+                    error_message = format!("Custom error message: Unexpected engine result: {:?}", engine_result);
+                }
+            }
+
+            // Modify or add information to the error if needed
+            Err(error_message)
+        }
+    }
 }
 fn format_duration(duration: Duration) -> String {
     let hours = duration.num_hours();
@@ -190,18 +288,6 @@ fn countdown_to_task(task_time_dt: &NaiveDateTime) {
 fn tugas_utama() {
     println!("Performing the task...");
     println!("\nTask completed! Current time: {}", Local::now().format("%H:%M:%S.%3f"));
-}
-
-fn print_result(result: Result<http::Response<Body>, cronet_rs::client::ClientError>) {
-    match result {
-        Ok(response) => {
-            println!("Status: {}", response.status());
-            println!("Headers: {:#?}", response.headers());
-            let body = response.body().as_bytes().unwrap();
-            println!("Body: {}", String::from_utf8_lossy(body));
-        }
-        Err(error) => println!("Error: {}", error),
-    }
 }
 
 fn get_user_input(prompt: &str) -> String {

@@ -79,12 +79,14 @@ jobs:
         wget ${{ matrix.platform.dep }}
         tar -xf ${{ matrix.platform.dep_name }}
         cp -r ${{ matrix.platform.dep_name_folder }}/* bin
+        cp -rf ${{ matrix.platform.dep_name_folder }}/*h src
         sudo apt install llvm-dev libclang-dev clang
 
     - name: configure
       if: matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686'  && matrix.platform.os_name != 'Windows-i586'
       run: | 
-        sudo cp -r ${{ matrix.platform.dep_name_folder }}/sysroot/usr/* /usr
+        sudo cp -rf ${{ matrix.platform.dep_name_folder }}/sysroot/usr/* /usr
+        cp -rf ${{ matrix.platform.dep_name_folder }}/*h src
 
     - name: Add dependency(Windows-x86_64)
       if: matrix.platform.os_name == 'Windows-x86_64' 
@@ -92,6 +94,7 @@ jobs:
         Invoke-WebRequest -Uri "${{ matrix.platform.dep }}" -OutFile "${{ matrix.platform.dep_name }}"
         unzip ${{ matrix.platform.dep_name }}
         cp ${{ matrix.platform.dep_name_folder }}/* bin
+        cp -Force -Recurse ${{ matrix.platform.dep_name_folder }}/*h src
         ls -R
 
     - name: Add dependency(Windows-i686)
@@ -100,6 +103,7 @@ jobs:
         Invoke-WebRequest -Uri "${{ matrix.platform.dep }}" -OutFile "${{ matrix.platform.dep_name }}"
         unzip ${{ matrix.platform.dep_name }}
         cp ${{ matrix.platform.dep_name_folder }}/* bin
+        cp -Force -Recurse ${{ matrix.platform.dep_name_folder }}/*h src
         ls -R
 
     - name: Add dependency(Windows-i586)
@@ -108,6 +112,7 @@ jobs:
         Invoke-WebRequest -Uri "${{ matrix.platform.dep }}" -OutFile "${{ matrix.platform.dep_name }}"
         unzip ${{ matrix.platform.dep_name }}
         cp ${{ matrix.platform.dep_name_folder }}/* bin
+        cp -Force -Recurse ${{ matrix.platform.dep_name_folder }}/*h src
         ls -R
 
     - name: Dependency
