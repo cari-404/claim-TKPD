@@ -83,9 +83,11 @@ jobs:
         sudo apt install llvm-dev libclang-dev clang
 
     - name: configure
-      if: matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686'  && matrix.platform.os_name != 'Windows-i586'
+      if: matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686'  && matrix.platform.os_name != 'Windows-i586' && matrix.platform.os_name != 'Linux-x86_64'
       run: | 
         sudo cp -rf ${{ matrix.platform.dep_name_folder }}/sysroot/usr/* /usr
+        sudo cp -rf ${{ matrix.platform.dep_name_folder }}/sysroot/lib/* /lib
+        sudo cp -rf ${{ matrix.platform.dep_name_folder }}/sysroot/etc/* /etc
         cp -rf ${{ matrix.platform.dep_name_folder }}/*h src
         ls -R
 
