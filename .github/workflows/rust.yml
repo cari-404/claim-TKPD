@@ -80,6 +80,7 @@ jobs:
         tar -xf ${{ matrix.platform.dep_name }}
         cp -r ${{ matrix.platform.dep_name_folder }}/* bin
         cp -rf ${{ matrix.platform.dep_name_folder }}/*h src
+        sudo apt update
         sudo apt install llvm-dev libclang-dev clang gcc-multilib g++-multilib
         clang --version
 
