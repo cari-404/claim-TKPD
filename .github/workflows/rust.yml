@@ -82,15 +82,6 @@ jobs:
         cp -rf ${{ matrix.platform.dep_name_folder }}/*h src
         sudo apt install llvm-dev libclang-dev clang gcc-multilib
 
-    - name: configure
-      if: matrix.platform.os_name == 'Linux-aarch64' || matrix.platform.os_name == 'Linux-i686' 
-      run: | 
-        sudo cp -rf ${{ matrix.platform.dep_name_folder }}/sysroot/usr/* /usr
-        sudo cp -rf ${{ matrix.platform.dep_name_folder }}/sysroot/lib/* /lib
-        sudo cp -rf ${{ matrix.platform.dep_name_folder }}/sysroot/etc/* /etc
-        cp -rf ${{ matrix.platform.dep_name_folder }}/*h src
-        ls -R
-
     - name: Add dependency(Windows-x86_64)
       if: matrix.platform.os_name == 'Windows-x86_64' 
       run: | 
