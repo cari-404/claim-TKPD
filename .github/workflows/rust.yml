@@ -81,6 +81,7 @@ jobs:
         cp -r ${{ matrix.platform.dep_name_folder }}/* bin
         cp -rf ${{ matrix.platform.dep_name_folder }}/*h src
         sudo apt install llvm-dev libclang-dev clang gcc-multilib g++-multilib
+        clang --version
 
     - name: Add dependency(Windows-x86_64)
       if: matrix.platform.os_name == 'Windows-x86_64' 
