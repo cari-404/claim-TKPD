@@ -80,7 +80,7 @@ jobs:
         tar -xf ${{ matrix.platform.dep_name }}
         cp -r ${{ matrix.platform.dep_name_folder }}/* bin
         cp -rf ${{ matrix.platform.dep_name_folder }}/*h src
-        sudo apt install llvm-dev libclang-dev clang
+        sudo apt install llvm-dev libclang-dev clang gcc-multilib
 
     - name: configure
       if: matrix.platform.os_name == 'Linux-aarch64' || matrix.platform.os_name == 'Linux-i686' 
