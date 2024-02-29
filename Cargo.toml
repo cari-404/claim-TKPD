@@ -12,6 +12,19 @@ codegen-units = 1   # Reduce number of codegen units to increase optimizations.
 panic = "abort"     # Abort on panic
 strip = true
 
+[build]
+# Specify the environment variable for library search path
+# Adjust the path accordingly
+rustc-link-search = ["bin"]
+
+# Specify the library to link against
+rustc-link-lib = ["libcronet"]
+
+[target.'cfg(target_os = "android")']
+# Specify the target architecture
+# Adjust the target accordingly
+rustflags = ["-C", "link-arg=-target", "-C", "link-arg=aarch64-linux-android"]
+
 [dependencies]
 cronet-rs = { git = "https://github.com/cari-404/cronet-rs.git" }
 http = "1.0.0"
