@@ -28,7 +28,7 @@ fn main() {
     let opt = Opt::from_args();
 	clear_screen();
     // Welcome Header
-    println!("Claim Voucher Tokopedia [Version 1.0.0]");
+    println!("Claim Voucher Tokopedia [Version 0.1.0]");
     println!("");
 
     // Get account details
@@ -114,17 +114,17 @@ fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 	headers.insert("Content-Type", HeaderValue::from_static("application/json"));
 	headers.insert("Origin", HeaderValue::from_static("https://www.tokopedia.com"));
 	headers.insert("Referer", HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/"));
-	headers.insert("Sec-Ch-Ua", HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"121\", \"Chromium\";v=\"121\""));
+	headers.insert("Sec-Ch-Ua", HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"122\""));
 	headers.insert("Sec-Ch-Ua-Mobile", HeaderValue::from_static("?0"));
 	headers.insert("Sec-Ch-Ua-Platform", HeaderValue::from_static("\"Windows\""));
 	headers.insert("Sec-Fetch-Dest", HeaderValue::from_static("empty"));
 	headers.insert("Sec-Fetch-Mode", HeaderValue::from_static("cors"));
 	headers.insert("Sec-Fetch-Site", HeaderValue::from_static("same-site"));
-	headers.insert("user-agent", HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"));
+	headers.insert("user-agent", HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"));
 	headers.insert("X-Source", HeaderValue::from_static("tokopedia-lite"));
 	headers.insert("x-tkpd-akamai", HeaderValue::from_static("claimcoupon"));
 	headers.insert("X-Tkpd-Lite-Service", HeaderValue::from_static("zeus"));
-	headers.insert("X-Version", HeaderValue::from_static("808d646"));
+	headers.insert("X-Version", HeaderValue::from_static("f0bbbfd"));
     headers.insert("cookie", HeaderValue::from_str(&cookie_content).unwrap());
 	println!("Request Headers:\n{:?}", headers);
 	let mut request = http::Request::builder()
@@ -195,16 +195,16 @@ fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 	headers.insert("Content-Type", HeaderValue::from_static("application/json"));
 	headers.insert("Origin", HeaderValue::from_static("https://www.tokopedia.com"));
 	headers.insert("Referer", HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/"));
-	headers.insert("Sec-Ch-Ua", HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"121\", \"Chromium\";v=\"121\""));
+	headers.insert("Sec-Ch-Ua", HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"122\""));
 	headers.insert("Sec-Ch-Ua-Mobile", HeaderValue::from_static("?0"));
 	headers.insert("Sec-Ch-Ua-Platform", HeaderValue::from_static("\"Windows\""));
 	headers.insert("Sec-Fetch-Dest", HeaderValue::from_static("empty"));
 	headers.insert("Sec-Fetch-Mode", HeaderValue::from_static("cors"));
 	headers.insert("Sec-Fetch-Site", HeaderValue::from_static("same-site"));
-	headers.insert("user-agent", HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"));
+	headers.insert("user-agent", HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"));
 	headers.insert("X-Source", HeaderValue::from_static("tokopedia-lite"));
 	headers.insert("X-Tkpd-Lite-Service", HeaderValue::from_static("zeus"));
-	headers.insert("X-Version", HeaderValue::from_static("808d646"));
+	headers.insert("X-Version", HeaderValue::from_static("f0bbbfd"));
     headers.insert("cookie", HeaderValue::from_str(&cookie_content).unwrap());
 	println!("Request Headers:\n{:?}", headers);
 	let mut request = http::Request::builder()
