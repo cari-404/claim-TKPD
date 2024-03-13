@@ -118,6 +118,12 @@ jobs:
         sudo apt update
         sudo apt install gcc-mingw-w64 libc6-dev-i386 libssl-dev:i386 -y
 
+    - name: Convert
+      if: matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686'  && matrix.platform.os_name != 'Windows-i586' && matrix.platform.os_name != 'Linux-x86_64'
+      run: |
+        rm Cargo.toml
+        mv cross.toml Cargo.toml
+
     - name: Build binary
       uses: houseabsolute/actions-rust-cross@v0
       if: matrix.platform.os_name != 'Android-aarch64' && matrix.platform.os_name != 'Windows-i586'
@@ -170,6 +176,6 @@ jobs:
     - name: Release binary and SHA-256 checksum to GitHub
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: v1.0.0
+        tag_name: v2.0.0
         files: |
           target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
