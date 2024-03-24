@@ -19,7 +19,9 @@ struct Opt {
     #[structopt(short, long, help = "time to run")]
     time: Option<String>,    
     #[structopt(short, long, help = "Set catalog_id")]
-    catalog: Option<String>, 
+    catalog: Option<String>,
+	#[structopt(short, long, help = "No Validate Steps")]
+    no_validate: bool,
 }
 
 fn clear_screen() {
@@ -32,7 +34,7 @@ async fn main() {
     let opt = Opt::from_args();
 	clear_screen();
     // Welcome Header
-    println!("Claim Voucher Tokopedia [Version 2.0.0]");
+    println!("Claim Voucher Tokopedia [Version 2.1.0]");
     println!("Native Version");
     println!("");
 
@@ -49,7 +51,9 @@ async fn main() {
 	} else {
 		println!("Error parsing task time");
 	}
-	validate_with_retry(&catalog_id, &cookie_content).await;
+	if !opt.no_validate{
+		validate_with_retry(&catalog_id, &cookie_content).await;
+	}
 	redeem_with_retry(&catalog_id, &cookie_content).await;
 	
 }
@@ -118,7 +122,7 @@ async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 	headers.insert("Accept-Language", reqwest::header::HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
 	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
 	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
-	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/"));
+	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK04MARE"));
 	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"122\""));
 	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
 	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
@@ -129,9 +133,9 @@ async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
 	headers.insert("x-tkpd-akamai", reqwest::header::HeaderValue::from_static("claimcoupon"));
 	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
-	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("060a02e"));
+	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("77c1442"));
     headers.insert("cookie", reqwest::header::HeaderValue::from_str(&cookie_content).unwrap());
-	println!("Request Headers:\n{:?}", headers);
+	//println!("Request Headers:\n{:?}", headers);
 	
     let client = ClientBuilder::new()
         .gzip(true)
@@ -152,7 +156,7 @@ async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
     match result {
         Ok(response) => {
             println!("Redeem Status: {}", response.status());
-            println!("Headers: {:#?}", response.headers());
+            //println!("Headers: {:#?}", response.headers());
             let body = response.text().await.map_err(|e| format!("Failed to read response body: {:?}", e))?;
             println!("Body: {}", body);
             Ok(())
@@ -185,7 +189,7 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 	headers.insert("Accept-Language", reqwest::header::HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
 	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
 	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
-	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/"));
+	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK04MARE"));
 	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"122\""));
 	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
 	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
@@ -195,9 +199,9 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"));
 	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
 	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
-	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("060a02e"));
+	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("77c1442"));
     headers.insert("cookie", reqwest::header::HeaderValue::from_str(&cookie_content).unwrap());
-	println!("Request Headers:\n{:?}", headers);
+	//println!("Request Headers:\n{:?}", headers);
 	
     let client = ClientBuilder::new()
         .gzip(true)
@@ -217,7 +221,7 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
     match result {
         Ok(response) => {
             println!("Validation Status: {}", response.status());
-            println!("Headers: {:#?}", response.headers());
+            //println!("Headers: {:#?}", response.headers());
             let body = response.text().await.unwrap();
             println!("Body: {}", body);
             Ok(())
