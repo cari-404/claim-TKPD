@@ -50,14 +50,14 @@ jobs:
             dep_name_folder: cronet-v119.0.6045.66-linux-x86
           - os_name: Windows-x86_64
             os: windows-latest
-            target: x86_64-pc-windows-msvc
+            target: x86_64-pc-windows-gnu
             bin: claim-amd64.exe
             dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x64.zip
             dep_name: cronet-v119.0.6045.66-win-x64.zip
             dep_name_folder: cronet-v119.0.6045.66-win-x64
           - os_name: Windows-i686
             os: windows-latest
-            target: i686-pc-windows-msvc
+            target: i686-pc-windows-gnu
             bin: claim-i686.exe
             dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x86.zip
             dep_name: cronet-v119.0.6045.66-win-x86.zip
@@ -101,6 +101,7 @@ jobs:
         cp ${{ matrix.platform.dep_name_folder }}/* bin
         cp -Force -Recurse ${{ matrix.platform.dep_name_folder }}/*h src
         ls -R
+        echo "C:\msys64\mingw32\bin" >> $GITHUB_PATH
 
     - name: Add dependency(Windows-i586)
       if: matrix.platform.os_name == 'Windows-i586' 
@@ -110,6 +111,7 @@ jobs:
         cp ${{ matrix.platform.dep_name_folder }}/* bin
         cp -Force -Recurse ${{ matrix.platform.dep_name_folder }}/*h src
         ls -R
+        echo "C:\msys64\mingw32\bin" >> $GITHUB_PATH
 
     - name: Dependency
       if: matrix.platform.os_name == 'Linux-i686'
