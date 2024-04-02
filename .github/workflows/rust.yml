@@ -111,6 +111,7 @@ jobs:
         cp ${{ matrix.platform.dep_name_folder }}/* bin
         cp -Force -Recurse ${{ matrix.platform.dep_name_folder }}/*h src
         ls -R
+        pacman -S mingw-w64-i686-gcc
         echo "C:\msys64\mingw32\bin" >> $GITHUB_PATH
 
     - name: Dependency
