@@ -1,12 +1,9 @@
-use reqwest::{Client, Error as ReqwestError};
-use reqwest::ClientBuilder;
-use reqwest::Body;
-use reqwest::Version;
+use cronet_rs::client::{Body, Client, ClientError};
+use http::HeaderValue;
 use serde_json::json;
 use std::thread;
 use std::time::Duration as StdDuration;
 use std::fs::File;
-use std::process::Command;
 use std::io::{self, Read, Write};
 use chrono::{Local, Duration, NaiveDateTime};
 use structopt::StructOpt;
@@ -19,9 +16,7 @@ struct Opt {
     #[structopt(short, long, help = "time to run")]
     time: Option<String>,    
     #[structopt(short, long, help = "Set catalog_id")]
-    catalog: Option<String>,
-	#[structopt(short, long, help = "No Validate Steps")]
-    no_validate: bool,
+    catalog: Option<String>, 
 }
 
 fn clear_screen() {
@@ -29,13 +24,11 @@ fn clear_screen() {
     io::stdout().flush().unwrap();
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let opt = Opt::from_args();
 	clear_screen();
     // Welcome Header
-    println!("Claim Voucher Tokopedia [Version 2.1.0]");
-    println!("Native Version");
+    println!("Claim Voucher Tokopedia [Version 1.0.1]");
     println!("");
 
     // Get account details
@@ -51,19 +44,17 @@ async fn main() {
 	} else {
 		println!("Error parsing task time");
 	}
-	if !opt.no_validate{
-		validate_with_retry(&catalog_id, &cookie_content).await;
-	}
-	redeem_with_retry(&catalog_id, &cookie_content).await;
+	validate_with_retry(&catalog_id, &cookie_content);
+	redeem_with_retry(&catalog_id, &cookie_content);
 	
 }
 
-async fn redeem_with_retry(catalog_id: &str, cookie_content: &str) {
+fn redeem_with_retry(catalog_id: &str, cookie_content: &str) {
     const MAX_RETRIES: usize = 7;
     let mut retries = 0;
 
     while retries < MAX_RETRIES {
-        match redeem(catalog_id, cookie_content).await {
+        match redeem(catalog_id, cookie_content) {
             Ok(_) => {
                 println!("Redeem successful!");
                 break;
@@ -78,12 +69,12 @@ async fn redeem_with_retry(catalog_id: &str, cookie_content: &str) {
     }
 }
 
-async fn validate_with_retry(catalog_id: &str, cookie_content: &str) {
+fn validate_with_retry(catalog_id: &str, cookie_content: &str) {
     const MAX_RETRIES: usize = 3;
     let mut retries = 0;
 
     while retries < MAX_RETRIES {
-        match validate(catalog_id, cookie_content).await {
+        match validate(catalog_id, cookie_content) {
             Ok(_) => {
                 println!("Validation successful!");
                 break;
@@ -98,8 +89,8 @@ async fn validate_with_retry(catalog_id: &str, cookie_content: &str) {
     }
 }
 
-async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
-
+fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
+	let client = Client::new();
 	let body_json = json!([
 	  {
 		"operationName": "redeemCoupon",
@@ -117,56 +108,70 @@ async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 	let body = Body::from(body_str.clone());
 	println!("{:?}", body);
     println!("\nsending Get Shopee request...");
-	let mut headers = reqwest::header::HeaderMap::new();
-	headers.insert("Accept", reqwest::header::HeaderValue::from_static("*/*"));
-	headers.insert("Accept-Language", reqwest::header::HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
-	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
-	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
-	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK04MARE"));
-	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"122\""));
-	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
-	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
-	headers.insert("Sec-Fetch-Dest", reqwest::header::HeaderValue::from_static("empty"));
-	headers.insert("Sec-Fetch-Mode", reqwest::header::HeaderValue::from_static("cors"));
-	headers.insert("Sec-Fetch-Site", reqwest::header::HeaderValue::from_static("same-site"));
-	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"));
-	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
-	headers.insert("x-tkpd-akamai", reqwest::header::HeaderValue::from_static("claimcoupon"));
-	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
-	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("77c1442"));
-    headers.insert("cookie", reqwest::header::HeaderValue::from_str(&cookie_content).unwrap());
-	//println!("Request Headers:\n{:?}", headers);
-	
-    let client = ClientBuilder::new()
-        .gzip(true)
-        .use_rustls_tls() // Use Rustls for HTTPS
-        .build()
-        .map_err(|e| format!("Failed to build reqwest client: {:?}", e))?;
+	let mut headers = http::header::HeaderMap::new();
+	headers.insert("Accept", HeaderValue::from_static("*/*"));
+	headers.insert("Accept-Language", HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
+	headers.insert("Content-Type", HeaderValue::from_static("application/json"));
+	headers.insert("Origin", HeaderValue::from_static("https://www.tokopedia.com"));
+	headers.insert("Referer", HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/"));
+	headers.insert("Sec-Ch-Ua", HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"122\""));
+	headers.insert("Sec-Ch-Ua-Mobile", HeaderValue::from_static("?0"));
+	headers.insert("Sec-Ch-Ua-Platform", HeaderValue::from_static("\"Windows\""));
+	headers.insert("Sec-Fetch-Dest", HeaderValue::from_static("empty"));
+	headers.insert("Sec-Fetch-Mode", HeaderValue::from_static("cors"));
+	headers.insert("Sec-Fetch-Site", HeaderValue::from_static("same-site"));
+	headers.insert("user-agent", HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"));
+	headers.insert("X-Source", HeaderValue::from_static("tokopedia-lite"));
+	headers.insert("x-tkpd-akamai", HeaderValue::from_static("claimcoupon"));
+	headers.insert("X-Tkpd-Lite-Service", HeaderValue::from_static("zeus"));
+	headers.insert("X-Version", HeaderValue::from_static("060a02e"));
+    headers.insert("cookie", HeaderValue::from_str(&cookie_content).unwrap());
+	println!("Request Headers:\n{:?}", headers);
+	let mut request = http::Request::builder()
+        .method("POST")
+        .uri("https://gql.tokopedia.com/graphql/redeemCoupon");
+		
+    for (name, value) in headers.iter() {
+        request = request.header(name.clone(), value.clone());
+    }
 
-    // Buat permintaan HTTP POST
-    let result = client
-        .post("https://gql.tokopedia.com/graphql/redeemCoupon")
-        .header("Content-Type", "application/json")
-        .headers(headers)
-        .body(body)
-        .version(Version::HTTP_2) 
-        .send()
-        .await;
-    
+    let request = request.body(body)
+        .unwrap();
+
+    let result = client.send(request);
+    let mut error_message = String::from("Old cookie");
     match result {
         Ok(response) => {
             println!("Redeem Status: {}", response.status());
-            //println!("Headers: {:#?}", response.headers());
-            let body = response.text().await.map_err(|e| format!("Failed to read response body: {:?}", e))?;
-            println!("Body: {}", body);
+            println!("Headers: {:#?}", response.headers());
+            let body = response.body().as_bytes().unwrap();
+            println!("Body: {}", String::from_utf8_lossy(body));
             Ok(())
         }
-        Err(err) => Err(format!("Error: {:?}", err))
+        Err(err) => {
+            match &err {
+                ClientError::CronetError(cronet_error) => {
+                    println!("Redeem Error: {:?}", cronet_error);
+                    error_message = format!("Alert : Old cookie?");
+                }
+                ClientError::CancellationError => {
+                    println!("Redeem Error: Request was cancelled");
+                    error_message = String::from("Custom error message: Request was cancelled");
+                }
+                ClientError::EngineError(engine_result) => {
+                    println!("Redeem Error: Unexpected engine result: {:?}", engine_result);
+                    error_message = format!("Custom error message: Unexpected engine result: {:?}", engine_result);
+                }
+            }
+
+            // Modify or add information to the error if needed
+            Err(error_message)
+        }
     }
 }
 
-async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
-
+fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
+	let client = Client::new();
 	let body_json = json!([
 	  {
 		"operationName": "validateRedeem",
@@ -184,49 +189,64 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 	println!("{:?}", body);
 
     println!("\nsending Get Shopee request...");
-	let mut headers = reqwest::header::HeaderMap::new();
-	headers.insert("Accept", reqwest::header::HeaderValue::from_static("*/*"));
-	headers.insert("Accept-Language", reqwest::header::HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
-	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
-	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
-	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK04MARE"));
-	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"122\""));
-	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
-	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
-	headers.insert("Sec-Fetch-Dest", reqwest::header::HeaderValue::from_static("empty"));
-	headers.insert("Sec-Fetch-Mode", reqwest::header::HeaderValue::from_static("cors"));
-	headers.insert("Sec-Fetch-Site", reqwest::header::HeaderValue::from_static("same-site"));
-	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"));
-	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
-	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
-	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("77c1442"));
-    headers.insert("cookie", reqwest::header::HeaderValue::from_str(&cookie_content).unwrap());
-	//println!("Request Headers:\n{:?}", headers);
-	
-    let client = ClientBuilder::new()
-        .gzip(true)
-        .use_rustls_tls() // Use Rustls for HTTPS
-        .build()
-        .map_err(|e| format!("Failed to build reqwest client: {:?}", e))?;
+	let mut headers = http::header::HeaderMap::new();
+	headers.insert("Accept", HeaderValue::from_static("*/*"));
+	headers.insert("Accept-Language", HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
+	headers.insert("Content-Type", HeaderValue::from_static("application/json"));
+	headers.insert("Origin", HeaderValue::from_static("https://www.tokopedia.com"));
+	headers.insert("Referer", HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/"));
+	headers.insert("Sec-Ch-Ua", HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"122\""));
+	headers.insert("Sec-Ch-Ua-Mobile", HeaderValue::from_static("?0"));
+	headers.insert("Sec-Ch-Ua-Platform", HeaderValue::from_static("\"Windows\""));
+	headers.insert("Sec-Fetch-Dest", HeaderValue::from_static("empty"));
+	headers.insert("Sec-Fetch-Mode", HeaderValue::from_static("cors"));
+	headers.insert("Sec-Fetch-Site", HeaderValue::from_static("same-site"));
+	headers.insert("user-agent", HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"));
+	headers.insert("X-Source", HeaderValue::from_static("tokopedia-lite"));
+	headers.insert("X-Tkpd-Lite-Service", HeaderValue::from_static("zeus"));
+	headers.insert("X-Version", HeaderValue::from_static("060a02e"));
+    headers.insert("cookie", HeaderValue::from_str(&cookie_content).unwrap());
+	println!("Request Headers:\n{:?}", headers);
+	let mut request = http::Request::builder()
+        .method("POST")
+        .uri("https://gql.tokopedia.com/graphql/validateRedeem");
+		
+    for (name, value) in headers.iter() {
+        request = request.header(name.clone(), value.clone());
+    }
 
-	// Buat permintaan HTTP POST
-	let result = client
-		.post("https://gql.tokopedia.com/graphql/validateRedeem")
-		.header("Content-Type", "application/json")
-		.headers(headers)
-		.body(body)
-		.version(Version::HTTP_2) 
-		.send()
-		.await;
+    let request = request.body(body)
+        .unwrap();
+
+    let result = client.send(request);
+    let mut error_message = String::from("Old cookie");
     match result {
         Ok(response) => {
             println!("Validation Status: {}", response.status());
-            //println!("Headers: {:#?}", response.headers());
-            let body = response.text().await.unwrap();
-            println!("Body: {}", body);
+            println!("Headers: {:#?}", response.headers());
+            let body = response.body().as_bytes().unwrap();
+            println!("Body: {}", String::from_utf8_lossy(body));
             Ok(())
         }
-        Err(err) => Err(format!("Error: {:?}", err))
+        Err(err) => {
+            match &err {
+                ClientError::CronetError(cronet_error) => {
+                    println!("Redeem Error: {:?}", cronet_error);
+                    error_message = format!("Alert : Old cookie?");
+                }
+                ClientError::CancellationError => {
+                    println!("Redeem Error: Request was cancelled");
+                    error_message = String::from("Custom error message: Request was cancelled");
+                }
+                ClientError::EngineError(engine_result) => {
+                    println!("Redeem Error: Unexpected engine result: {:?}", engine_result);
+                    error_message = format!("Custom error message: Unexpected engine result: {:?}", engine_result);
+                }
+            }
+
+            // Modify or add information to the error if needed
+            Err(error_message)
+        }
     }
 }
 fn format_duration(duration: Duration) -> String {
@@ -246,23 +266,17 @@ fn parse_task_time(task_time_str: &str) -> Result<NaiveDateTime, Box<dyn std::er
 }
 
 fn countdown_to_task(task_time_dt: &NaiveDateTime) {
-    //let mut winver_executed = false; // Variabel penanda
-	loop {
+    loop {
         let current_time = Local::now().naive_local();
         let task_time_naive = task_time_dt.time();
         let time_until_task = task_time_naive.signed_duration_since(current_time.time());
 
-        if time_until_task <= Duration::seconds(0) {
+        if time_until_task < Duration::zero() {
             println!("\nTask completed! Current time: {}", current_time.format("%H:%M:%S.%3f"));
-			tugas_utama();
+            tugas_utama();
             break;
         }
-        /*// Cek apakah tersisa 10 detik sebelum mencapai 0 detik
-        if time_until_task <= Duration::seconds(10) && !winver_executed {
-            println!("\nTask scheduled in 10 seconds! Current time: {}", current_time.format("%H:%M:%S.%3f"));
-            Command::new("winver.exe").spawn().expect("Failed to execute command");
-			winver_executed = true; // Setel variabel penanda menjadi true setelah dijadwalkan
-        }*/
+
         let formatted_time = format_duration(time_until_task);
         print!("\r{}", formatted_time);
         io::stdout().flush().unwrap();

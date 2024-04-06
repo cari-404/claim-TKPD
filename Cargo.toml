@@ -1,6 +1,6 @@
 [package]
 name = "claim"
-version = "2.1.0"
+version = "1.0.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,10 +12,24 @@ codegen-units = 1   # Reduce number of codegen units to increase optimizations.
 panic = "abort"     # Abort on panic
 strip = true
 
+[build]
+# Specify the environment variable for library search path
+# Adjust the path accordingly
+rustc-link-search = ["bin"]
+
+# Specify the library to link against
+rustc-link-lib = ["libcronet"]
+
+[target.'cfg(target_os = "android")']
+# Specify the target architecture
+# Adjust the target accordingly
+rustflags = ["-C", "link-arg=-target", "-C", "link-arg=aarch64-linux-android"]
+
 [dependencies]
-reqwest = { version = "0.11", features = ["rustls-tls" , "gzip" , "json"] }
+cronet-rs = { git = "https://github.com/cari-404/cronet-rs.git" }
+http = "1.0.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = "0.4"
 structopt = "0.3"
-tokio = { version = "1", features = ["full"] }
+clang-sys = { version = "1.7.0", features = ["clang_15_0"] }
