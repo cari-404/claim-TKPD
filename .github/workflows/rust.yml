@@ -50,21 +50,21 @@ jobs:
             dep_name_folder: cronet-v119.0.6045.66-linux-x86
           - os_name: Windows-x86_64
             os: windows-latest
-            target: x86_64-pc-windows-gnu
+            target: x86_64-pc-windows-msvc
             bin: claim-amd64.exe
             dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x64.zip
             dep_name: cronet-v119.0.6045.66-win-x64.zip
             dep_name_folder: cronet-v119.0.6045.66-win-x64
           - os_name: Windows-i686
             os: windows-latest
-            target: i686-pc-windows-gnu
+            target: i686-pc-windows-msvc
             bin: claim-i686.exe
             dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x86.zip
             dep_name: cronet-v119.0.6045.66-win-x86.zip
             dep_name_folder: cronet-v119.0.6045.66-win-x86
           - os_name: Windows-i586
             os: windows-latest
-            target: i586-pc-windows-gnu
+            target: i586-pc-windows-msvc
             bin: claim-i586.exe
             dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x86.zip
             dep_name: cronet-v119.0.6045.66-win-x86.zip
@@ -118,6 +118,12 @@ jobs:
         sudo apt update
         sudo apt install gcc-mingw-w64 libc6-dev-i386 libssl-dev:i386 -y
 
+    - name: Convert
+      if: matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686'  && matrix.platform.os_name != 'Windows-i586' && matrix.platform.os_name != 'Linux-x86_64'
+      run: |
+        rm Cargo.toml
+        mv cross.toml Cargo.toml
+
     - name: Build binary
       uses: houseabsolute/actions-rust-cross@v0
       if: matrix.platform.os_name != 'Android-aarch64' && matrix.platform.os_name != 'Windows-i586'
@@ -170,6 +176,6 @@ jobs:
     - name: Release binary and SHA-256 checksum to GitHub
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: v1.0.1
+        tag_name: v2.1.1
         files: |
           target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
