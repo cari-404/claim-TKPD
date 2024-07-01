@@ -1,4 +1,7 @@
 /*
+Whats new In 2.1.2 :
+refresh Header
+check failed claim when status 200 OK
 Whats new In 2.1.1 :
 Adjust time
 */
@@ -6,7 +9,7 @@ use reqwest::{Client, Error as ReqwestError};
 use reqwest::ClientBuilder;
 use reqwest::Body;
 use reqwest::Version;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::thread;
 use std::time::Duration as StdDuration;
 use std::fs::File;
@@ -35,9 +38,10 @@ fn clear_screen() {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let opt = Opt::from_args();
+	let version_info = env!("CARGO_PKG_VERSION");
 	clear_screen();
 	// Welcome Header
-	println!("Claim Voucher Tokopedia [Version 2.1.1]");
+	println!("{}", format!("Claim Voucher Tokopedia [Version {}]", version_info));
 	println!("Native Version");
 	println!("");
 
@@ -126,14 +130,14 @@ async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 	headers.insert("Accept-Language", reqwest::header::HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
 	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
 	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
-	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK04MARE"));
-	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"122\""));
+	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK"));
+	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"126\""));
 	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
 	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
 	headers.insert("Sec-Fetch-Dest", reqwest::header::HeaderValue::from_static("empty"));
 	headers.insert("Sec-Fetch-Mode", reqwest::header::HeaderValue::from_static("cors"));
 	headers.insert("Sec-Fetch-Site", reqwest::header::HeaderValue::from_static("same-site"));
-	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"));
+	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"));
 	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
 	headers.insert("x-tkpd-akamai", reqwest::header::HeaderValue::from_static("claimcoupon"));
 	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
@@ -157,16 +161,23 @@ async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 		.send()
 		.await;
 	
-	match result {
-		Ok(response) => {
-			println!("Redeem Status: {}", response.status());
-			//println!("Headers: {:#?}", response.headers());
-			let body = response.text().await.map_err(|e| format!("Failed to read response body: {:?}", e))?;
-			println!("Body: {}", body);
-			Ok(())
-		}
-		Err(err) => Err(format!("Error: {:?}", err))
-	}
+    match result {
+        Ok(response) => {
+            println!("Redeem Status: {}", response.status());
+            let body = response.text().await.map_err(|e| format!("Failed to read response body: {:?}", e))?;
+            println!("Body: {}", body);
+
+            let json_response: Value = serde_json::from_str(&body).map_err(|e| format!("Failed to parse response body: {:?}", e))?;
+            if let Some(redeem_message) = json_response.pointer("/data/hachikoRedeem/redeemMessage") {
+                if redeem_message == "Kupon berhasil diklaim" {
+                    println!("Coupon successfully claimed!");
+                    return Ok(());
+                }
+            }
+            Err(format!("Redeem failed with message: {:?}", json_response))
+        }
+        Err(err) => Err(format!("Error: {:?}", err))
+    }
 }
 
 async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
@@ -193,14 +204,14 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 	headers.insert("Accept-Language", reqwest::header::HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
 	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
 	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
-	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK04MARE"));
-	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"122\""));
+	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK"));
+	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"126\""));
 	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
 	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
 	headers.insert("Sec-Fetch-Dest", reqwest::header::HeaderValue::from_static("empty"));
 	headers.insert("Sec-Fetch-Mode", reqwest::header::HeaderValue::from_static("cors"));
 	headers.insert("Sec-Fetch-Site", reqwest::header::HeaderValue::from_static("same-site"));
-	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"));
+	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"));
 	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
 	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
 	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("77c1442"));
