@@ -50,21 +50,21 @@ jobs:
             dep_name_folder: cronet-v119.0.6045.66-linux-x86
           - os_name: Windows-x86_64
             os: windows-latest
-            target: x86_64-pc-windows-msvc
+            target: x86_64-pc-windows-gnu
             bin: claim-amd64.exe
             dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x64.zip
             dep_name: cronet-v119.0.6045.66-win-x64.zip
             dep_name_folder: cronet-v119.0.6045.66-win-x64
           - os_name: Windows-i686
             os: windows-latest
-            target: i686-pc-windows-msvc
+            target: i686-pc-windows-gnu
             bin: claim-i686.exe
             dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x86.zip
             dep_name: cronet-v119.0.6045.66-win-x86.zip
             dep_name_folder: cronet-v119.0.6045.66-win-x86
           - os_name: Windows-i586
             os: windows-latest
-            target: i586-pc-windows-msvc
+            target: i586-pc-windows-gnu
             bin: claim-i586.exe
             dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x86.zip
             dep_name: cronet-v119.0.6045.66-win-x86.zip
