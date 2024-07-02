@@ -1,4 +1,6 @@
 /*
+Whats new In 2.1.3 :
+fix stop when claim successfully
 Whats new In 2.1.2 :
 refresh Header
 check failed claim when status 200 OK
@@ -6,9 +8,7 @@ Whats new In 2.1.1 :
 Adjust time
 */
 use reqwest::{Client, Error as ReqwestError};
-use reqwest::ClientBuilder;
-use reqwest::Body;
-use reqwest::Version;
+use reqwest::{ClientBuilder, Body, Version};
 use serde_json::{json, Value};
 use std::thread;
 use std::time::Duration as StdDuration;
@@ -166,15 +166,24 @@ async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
             println!("Redeem Status: {}", response.status());
             let body = response.text().await.map_err(|e| format!("Failed to read response body: {:?}", e))?;
             println!("Body: {}", body);
+			// Parse the response body as an array
+			let json_response: Value = serde_json::from_str(&body).map_err(|e| format!("Failed to parse response body: {:?}", e))?;
+			let json_array = json_response.as_array().ok_or_else(|| format!("Response is not an array: {:?}", json_response))?;
 
-            let json_response: Value = serde_json::from_str(&body).map_err(|e| format!("Failed to parse response body: {:?}", e))?;
-            if let Some(redeem_message) = json_response.pointer("/data/hachikoRedeem/redeemMessage") {
-                if redeem_message == "Kupon berhasil diklaim" {
-                    println!("Coupon successfully claimed!");
-                    return Ok(());
-                }
-            }
-            Err(format!("Redeem failed with message: {:?}", json_response))
+			// Iterate through the array to find the redeem message
+			for item in json_array {
+				if let Some(redeem_message) = item.pointer("/data/hachikoRedeem/redeemMessage") {
+					if redeem_message == "Kupon berhasil diklaim" {
+						println!("Coupon successfully claimed!");
+						return Ok(());
+					} else {
+						return Err(format!("Unexpected redeem message: {:?}", redeem_message));
+					}
+				} else {
+					return Err(format!("Redeem message not found in response: {:?}", json_response));
+				}
+			}
+			Ok(())
         }
         Err(err) => Err(format!("Error: {:?}", err))
     }
