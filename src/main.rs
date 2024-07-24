@@ -1,11 +1,12 @@
 /*
+Whats new In 2.1.4 :
+max retry to 3
+add priority 1
 Whats new In 2.1.3 :
 fix stop when claim successfully
 Whats new In 2.1.2 :
 refresh Header
 check failed claim when status 200 OK
-Whats new In 2.1.1 :
-Adjust time
 */
 use reqwest::{Client, Error as ReqwestError};
 use reqwest::{ClientBuilder, Body, Version};
@@ -65,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn redeem_with_retry(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
-	const MAX_RETRIES: usize = 7;
+	const MAX_RETRIES: usize = 3;
 	let mut retries = 0;
 
 	while retries < MAX_RETRIES {
@@ -78,7 +79,7 @@ async fn redeem_with_retry(catalog_id: &str, cookie_content: &str) -> Result<(),
 				println!("Error redeeming: {}", error);
 				retries += 1;
 				println!("Retrying... Attempt {}/{}", retries, MAX_RETRIES);
-				thread::sleep(StdDuration::from_secs_f64(0.5)); // Adjust the sleep duration as needed
+				thread::sleep(StdDuration::from_millis(5)); // Adjust the sleep duration as needed
 			}
 		}
 	}
@@ -130,6 +131,7 @@ async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 	headers.insert("Accept-Language", reqwest::header::HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
 	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
 	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
+	headers.insert("Priority", reqwest::header::HeaderValue::from_static("u=1, i"));
 	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK"));
 	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"126\""));
 	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
@@ -141,7 +143,7 @@ async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
 	headers.insert("x-tkpd-akamai", reqwest::header::HeaderValue::from_static("claimcoupon"));
 	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
-	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("77c1442"));
+	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("4c288b3"));
 	headers.insert("cookie", reqwest::header::HeaderValue::from_str(&cookie_content).unwrap());
 	//println!("Request Headers:\n{:?}", headers);
 	
@@ -213,6 +215,7 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 	headers.insert("Accept-Language", reqwest::header::HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
 	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
 	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
+	headers.insert("Priority", reqwest::header::HeaderValue::from_static("u=1, i"));
 	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK"));
 	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"126\""));
 	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
@@ -223,7 +226,7 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"));
 	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
 	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
-	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("77c1442"));
+	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("4c288b3"));
 	headers.insert("cookie", reqwest::header::HeaderValue::from_str(&cookie_content).unwrap());
 	//println!("Request Headers:\n{:?}", headers);
 	
