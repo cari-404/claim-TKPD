@@ -24,117 +24,82 @@ jobs:
             os: ubuntu-20.04
             target: aarch64-linux-android
             bin: claim-linux-android-arm64
-            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-android-arm64.tar.xz
-            dep_name: cronet-v119.0.6045.66-android-arm64.tar.xz
-            dep_name_folder: cronet-v119.0.6045.66-android-arm64
           - os_name: Linux-aarch64
             os: ubuntu-20.04
             target: aarch64-unknown-linux-gnu
             bin: claim-linux-arm64
-            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-linux-arm64.tar.xz
-            dep_name: cronet-v119.0.6045.66-linux-arm64.tar.xz
-            dep_name_folder: cronet-v119.0.6045.66-linux-arm64
           - os_name: Linux-x86_64
             os: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
             bin: claim-linux-amd64
-            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-linux-x64.tar.xz
-            dep_name: cronet-v119.0.6045.66-linux-x64.tar.xz
-            dep_name_folder: cronet-v119.0.6045.66-linux-x64
           - os_name: Linux-i686
             os: ubuntu-20.04
             target: i686-unknown-linux-gnu
             bin: claim-linux-i686
-            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-linux-x86.tar.xz
-            dep_name: cronet-v119.0.6045.66-linux-x86.tar.xz
-            dep_name_folder: cronet-v119.0.6045.66-linux-x86
           - os_name: Windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
             bin: claim-amd64.exe
-            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x64.zip
-            dep_name: cronet-v119.0.6045.66-win-x64.zip
-            dep_name_folder: cronet-v119.0.6045.66-win-x64
+          - os_name: Windows-aarch64
+            os: windows-latest
+            target: aarch64-pc-windows-msvc
+            bin: claim-arm64.exe
+          - os_name: Windows7-x86_64
+            os: windows-latest
+            target: x86_64-win7-windows-msvc
+            bin: claim7-amd64.exe
           - os_name: Windows-i686
             os: windows-latest
             target: i686-pc-windows-msvc
             bin: claim-i686.exe
-            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x86.zip
-            dep_name: cronet-v119.0.6045.66-win-x86.zip
-            dep_name_folder: cronet-v119.0.6045.66-win-x86
+          - os_name: Windows7-i686
+            os: windows-latest
+            target: i686-win7-windows-msvc
+            bin: claim7-i686.exe
+          - os_name: Windows-i686
+            os: windows-latest
+            target: i686-pc-windows-msvc
+            bin: claim-i686.exe
           - os_name: Windows-i586
             os: windows-latest
             target: i586-pc-windows-msvc
             bin: claim-i586.exe
-            dep: https://github.com/sleeyax/cronet-binaries/releases/download/v119.0.6045.66/cronet-v119.0.6045.66-win-x86.zip
-            dep_name: cronet-v119.0.6045.66-win-x86.zip
-            dep_name_folder: cronet-v119.0.6045.66-win-x86
+
         toolchain:
           - stable
     steps:
-    - uses: actions/checkout@v3
-    - name: Add dependency
-      if: matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686'  && matrix.platform.os_name != 'Windows-i586'
-      run: | 
-        wget ${{ matrix.platform.dep }}
-        tar -xf ${{ matrix.platform.dep_name }}
-        cp -r ${{ matrix.platform.dep_name_folder }}/* bin
-        cp -rf ${{ matrix.platform.dep_name_folder }}/*h src
-        sudo apt update
-        sudo apt install llvm-dev libclang-dev clang gcc-multilib g++-multilib
-        clang --version
-
-    - name: Add dependency(Windows-x86_64)
-      if: matrix.platform.os_name == 'Windows-x86_64' 
-      run: | 
-        Invoke-WebRequest -Uri "${{ matrix.platform.dep }}" -OutFile "${{ matrix.platform.dep_name }}"
-        unzip ${{ matrix.platform.dep_name }}
-        cp ${{ matrix.platform.dep_name_folder }}/* bin
-        cp -Force -Recurse ${{ matrix.platform.dep_name_folder }}/*h src
-        ls -R
-
-    - name: Add dependency(Windows-i686)
-      if: matrix.platform.os_name == 'Windows-i686' 
-      run: | 
-        Invoke-WebRequest -Uri "${{ matrix.platform.dep }}" -OutFile "${{ matrix.platform.dep_name }}"
-        unzip ${{ matrix.platform.dep_name }}
-        cp ${{ matrix.platform.dep_name_folder }}/* bin
-        cp -Force -Recurse ${{ matrix.platform.dep_name_folder }}/*h src
-        ls -R
-
-    - name: Add dependency(Windows-i586)
-      if: matrix.platform.os_name == 'Windows-i586' 
-      run: | 
-        Invoke-WebRequest -Uri "${{ matrix.platform.dep }}" -OutFile "${{ matrix.platform.dep_name }}"
-        unzip ${{ matrix.platform.dep_name }}
-        cp ${{ matrix.platform.dep_name_folder }}/* bin
-        cp -Force -Recurse ${{ matrix.platform.dep_name_folder }}/*h src
-        ls -R
-
     - name: Dependency
       if: matrix.platform.os_name == 'Linux-i686'
       run: |
         sudo dpkg --add-architecture i386
         sudo apt update
-        sudo apt install gcc-mingw-w64 libc6-dev-i386 libssl-dev:i386 -y
+         sudo apt install make gcc-mingw-w64 libc6-dev-i386 libssl-dev:i386 libgcc-9-dev-i386-cross -y
 
     - name: Convert
-      if: matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686'  && matrix.platform.os_name != 'Windows-i586' && matrix.platform.os_name != 'Linux-x86_64'
+      if: matrix.platform.os_name != 'Windows7-x86_64' && matrix.platform.os_name != 'Windows7-i686' && matrix.platform.os_name != 'Windows-aarch64' && matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686'  && matrix.platform.os_name != 'Windows-i586' && matrix.platform.os_name != 'Linux-x86_64'
       run: |
-        rm Cargo.toml
-        mv cross.toml Cargo.toml
+        sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross
+        sudo apt install gcc-i686-linux-gnu g++-i686-linux-gnu libc6-dev-i386-cross
+        sudo apt install llvm-dev libclang-dev clang libgcc-9-dev-arm64-cross
+        clang --version
+
+    - name: Convert2
+      if: matrix.platform.os_name == 'Windows-x86_64' || matrix.platform.os_name == 'Windows-i686' || matrix.platform.os_name == 'Windows-aarch64' || matrix.platform.os_name == 'Windows7-x86_64' || matrix.platform.os_name == 'Windows7-i686' || matrix.platform.os_name == 'Windows-i586'
+      run: |
+        choco install nasm
 
     - name: Build binary
       uses: houseabsolute/actions-rust-cross@v0
-      if: matrix.platform.os_name != 'Android-aarch64' && matrix.platform.os_name != 'Windows-i586'
+      if: matrix.platform.os_name != 'Android-aarch64' && matrix.platform.os_name != 'Windows-i586' && matrix.platform.os_name != 'Windows7-x86_64' && matrix.platform.os_name != 'Windows7-i686'
       with:
         command: "build"
         target: ${{ matrix.platform.target }}
         toolchain: ${{ matrix.toolchain }}
         args: "--release"
         strip: true
+
     - name: Build binary
-      if: matrix.platform.os_name == 'Android-aarch64' && matrix.platform.os_name != 'Windows-i586'
+      if: matrix.platform.os_name == 'Android-aarch64' && matrix.platform.os_name != 'Windows-i586' && matrix.platform.os_name != 'Windows7-x86_64' && matrix.platform.os_name != 'Windows7-i686'
       uses: actions-rs/toolchain@v1
       with:
           toolchain: stable
@@ -147,24 +112,46 @@ jobs:
       run: |
         cargo install cargo-ndk
         rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
-        cargo ndk -t arm64-v8a build --release
+        cargo ndk -t armeabi-v7a -t arm64-v8a build --release
+
+    - name: Install nightly toolchain for Windows 7 64-bit
+      if: matrix.platform.os_name == 'Windows7-x86_64'
+      run: |
+        rustup toolchain install nightly-x86_64-pc-windows-msvc
+        rustup target add x86_64-win7-windows-msvc --toolchain nightly-x86_64-pc-windows-msvc
+        rustup component add rust-src --toolchain nightly-x86_64-pc-windows-msvc
+        cargo +nightly-x86_64-pc-windows-msvc build --release -Z build-std=std,panic_abort --target x86_64-win7-windows-msvc
+
+    - name: Install nightly toolchain for Windows 7 32-bit
+      if: matrix.platform.os_name == 'Windows7-i686'
+      run: |
+        choco install llvm --x86 --force
+        ls -R "C:\Program Files (x86)\LLVM\bin"
+        ls -R "C:\Program Files\LLVM\bin"
+        $env:LIBCLANG_PATH="C:\Program Files (x86)\LLVM\bin"
+        rustup toolchain install nightly-i686-pc-windows-msvc
+        rustup target add i686-win7-windows-msvc --toolchain nightly-i686-pc-windows-msvc
+        rustup component add rust-src --toolchain nightly-i686-pc-windows-msvc
+        cargo +nightly-i686-pc-windows-msvc build --release -Z build-std=std,panic_abort --target i686-win7-windows-msvc
 
     - name: install
       if: matrix.platform.os_name == 'Windows-i586'
       run: |
         rustup target add i586-pc-windows-msvc
         cargo add windows
-        cargo build --release --target i586-pc-windows-msvc
+        cargo build --release --target i586-pc-windows-msvc -p launcabs
+        cargo build --release --target i586-pc-windows-msvc -p abs
 
     - name: Run tests
       run: ls -R
 
     - name: Rename binary (linux and macos)
       run: mv target/${{ matrix.platform.target }}/release/claim target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
-      if: matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686' && matrix.platform.os_name != 'Windows-i586'
+      if: matrix.platform.os_name != 'Windows7-x86_64' && matrix.platform.os_name != 'Windows7-i686' && matrix.platform.os_name != 'Windows-aarch64' && matrix.platform.os_name != 'Windows-x86_64' && matrix.platform.os_name != 'Windows-i686' && matrix.platform.os_name != 'Windows-i586'
+
     - name: Rename binary (windows)
       run: mv target/${{ matrix.platform.target }}/release/claim.exe target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
-      if: matrix.platform.os_name == 'Windows-x86_64' || matrix.platform.os_name == 'Windows-i686' || matrix.platform.os_name == 'Windows-i586'
+      if: matrix.platform.os_name == 'Windows-x86_64' || matrix.platform.os_name == 'Windows-i686' || matrix.platform.os_name == 'Windows-aarch64' || matrix.platform.os_name == 'Windows7-x86_64' || matrix.platform.os_name == 'Windows7-i686' || matrix.platform.os_name == 'Windows-i586'
 
     - name: Generate SHA-256
       run: shasum -a 256 target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} | cut -d ' ' -f 1 > target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}.sha256
