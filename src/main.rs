@@ -155,7 +155,8 @@ async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 		.enable_ech_grease()
 		.permute_extensions()
 		.gzip(true)
-		.build();
+		.build()
+		.map_err(|e| format!("Failed to build reqwest client: {:?}", e))?;
 
 	// Buat permintaan HTTP POST
 	let result = client
@@ -240,7 +241,8 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 		.enable_ech_grease()
 		.permute_extensions()
 		.gzip(true)
-		.build();
+		.build()
+		.map_err(|e| format!("Failed to build reqwest client: {:?}", e))?;
 
 	// Buat permintaan HTTP POST
 	let result = client
