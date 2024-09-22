@@ -1,15 +1,17 @@
 /*
+Whats new In 2.1.5 :
+update headers
 Whats new In 2.1.4 :
 max retry to 3
 add priority 1
 Whats new In 2.1.3 :
 fix stop when claim successfully
-Whats new In 2.1.2 :
-refresh Header
-check failed claim when status 200 OK
 */
-use reqwest::{Client, Error as ReqwestError};
-use reqwest::{ClientBuilder, Body, Version};
+
+use rquest as reqwest;
+use reqwest::tls::Impersonate;
+use reqwest::{Client, Error as ReqwestError, ClientBuilder, header::HeaderMap, Body, Version};
+use reqwest::header::HeaderValue;
 use serde_json::{json, Value};
 use std::thread;
 use std::time::Duration as StdDuration;
@@ -133,23 +135,26 @@ async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
 	headers.insert("Priority", reqwest::header::HeaderValue::from_static("u=1, i"));
 	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK"));
-	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"126\""));
+	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"8\", \"Google Chrome\";v=\"129\", \"Chromium\";v=\"129\""));
 	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
 	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
 	headers.insert("Sec-Fetch-Dest", reqwest::header::HeaderValue::from_static("empty"));
 	headers.insert("Sec-Fetch-Mode", reqwest::header::HeaderValue::from_static("cors"));
 	headers.insert("Sec-Fetch-Site", reqwest::header::HeaderValue::from_static("same-site"));
-	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"));
+	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"));
 	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
 	headers.insert("x-tkpd-akamai", reqwest::header::HeaderValue::from_static("claimcoupon"));
 	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
-	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("4c288b3"));
+	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("c5fa3db"));
 	headers.insert("cookie", reqwest::header::HeaderValue::from_str(&cookie_content).unwrap());
 	//println!("Request Headers:\n{:?}", headers);
 	
 	let client = ClientBuilder::new()
+		.danger_accept_invalid_certs(true)
+		.impersonate_with_headers(Impersonate::Chrome127, false)
+		.enable_ech_grease()
+		.permute_extensions()
 		.gzip(true)
-		.use_rustls_tls() // Use Rustls for HTTPS
 		.build()
 		.map_err(|e| format!("Failed to build reqwest client: {:?}", e))?;
 
@@ -217,22 +222,25 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
 	headers.insert("Priority", reqwest::header::HeaderValue::from_static("u=1, i"));
 	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK"));
-	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"122\", \"Chromium\";v=\"126\""));
+	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"8\", \"Google Chrome\";v=\"129\", \"Chromium\";v=\"129\""));
 	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
 	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
 	headers.insert("Sec-Fetch-Dest", reqwest::header::HeaderValue::from_static("empty"));
 	headers.insert("Sec-Fetch-Mode", reqwest::header::HeaderValue::from_static("cors"));
 	headers.insert("Sec-Fetch-Site", reqwest::header::HeaderValue::from_static("same-site"));
-	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"));
+	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"));
 	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
 	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
-	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("4c288b3"));
+	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("c5fa3db"));
 	headers.insert("cookie", reqwest::header::HeaderValue::from_str(&cookie_content).unwrap());
 	//println!("Request Headers:\n{:?}", headers);
 	
 	let client = ClientBuilder::new()
+		.danger_accept_invalid_certs(true)
+		.impersonate_with_headers(Impersonate::Chrome127, false)
+		.enable_ech_grease()
+		.permute_extensions()
 		.gzip(true)
-		.use_rustls_tls() // Use Rustls for HTTPS
 		.build()
 		.map_err(|e| format!("Failed to build reqwest client: {:?}", e))?;
 
