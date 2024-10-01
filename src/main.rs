@@ -1,11 +1,11 @@
 /*
+Whats new In 2.1.6 :
+new algorithm method
 Whats new In 2.1.5 :
 update headers
 Whats new In 2.1.4 :
 max retry to 3
 add priority 1
-Whats new In 2.1.3 :
-fix stop when claim successfully
 */
 
 use rquest as reqwest;
@@ -56,23 +56,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		
 	// Get target URL
 	let catalog_id = opt.catalog.clone().unwrap_or_else(|| get_user_input("catalog_id: "));
+	let redeem_body = redeem_builder(&catalog_id).await?;
+	let header_redeem = header_redeem(&cookie_content).await;
 	let task_time_dt = parse_task_time(&task_time_str)?;
 	// Process HTTP with common function
 	countdown_to_task(task_time_dt).await;
 	if !opt.no_validate{
 		validate_with_retry(&catalog_id, &cookie_content).await?;
 	}
-	redeem_with_retry(&catalog_id, &cookie_content).await?;
+	redeem_with_retry(redeem_body, header_redeem).await?;
 	println!("\nTask completed! Current time: {}", Local::now().format("%H:%M:%S.%3f"));
 	Ok(())	
 }
 
-async fn redeem_with_retry(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
+async fn redeem_with_retry(redeem_body: serde_json::Value, header_redeem: HeaderMap) -> Result<(), String> {
 	const MAX_RETRIES: usize = 3;
 	let mut retries = 0;
 
 	while retries < MAX_RETRIES {
-		match redeem(catalog_id, cookie_content).await {
+		match redeem(redeem_body.clone(), header_redeem.clone()).await {
 			Ok(_) => {
 				println!("Redeem successful!");
 				return Ok(());
@@ -109,44 +111,12 @@ async fn validate_with_retry(catalog_id: &str, cookie_content: &str) -> Result<(
 	Err("Validation failed after retries".to_string()) // Return an error if validation fails after retries
 }
 
-async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
-
-	let body_json = json!([
-	  {
-		"operationName": "redeemCoupon",
-		"variables": {
-		  "catalog_id": catalog_id.parse::<i64>().unwrap(),
-		  "is_gift": 0,
-		  "gift_email": "",
-		  "notes": ""
-		},
-		"query": "mutation redeemCoupon($catalog_id: Int, $is_gift: Int, $gift_user_id: Int, $gift_email: String, $notes: String) {\n  hachikoRedeem(catalog_id: $catalog_id, is_gift: $is_gift, gift_user_id: $gift_user_id, gift_email: $gift_email, notes: $notes, apiVersion: \"2.0.0\") {\n	coupons {\n	  id\n	  owner\n	  promo_id\n	  code\n	  title\n	  description\n	  cta\n	  cta_desktop\n	  __typename\n	}\n	reward_points\n	redeemMessage\n	__typename\n  }\n}\n"
-	  }
-	]);
-		
+async fn redeem(body_json: serde_json::Value, header_redeem: HeaderMap) -> Result<(), String> {	
 	let body_str = serde_json::to_string(&body_json).map_err(|e| format!("Serialization error: {}", e))?;
 	let body = Body::from(body_str.clone());
 	println!("{:?}", body);
 	println!("\nsending Get Shopee request...");
-	let mut headers = reqwest::header::HeaderMap::new();
-	headers.insert("Accept", reqwest::header::HeaderValue::from_static("*/*"));
-	headers.insert("Accept-Language", reqwest::header::HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
-	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
-	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
-	headers.insert("Priority", reqwest::header::HeaderValue::from_static("u=1, i"));
-	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK"));
-	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"8\", \"Google Chrome\";v=\"129\", \"Chromium\";v=\"129\""));
-	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
-	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
-	headers.insert("Sec-Fetch-Dest", reqwest::header::HeaderValue::from_static("empty"));
-	headers.insert("Sec-Fetch-Mode", reqwest::header::HeaderValue::from_static("cors"));
-	headers.insert("Sec-Fetch-Site", reqwest::header::HeaderValue::from_static("same-site"));
-	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"));
-	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
-	headers.insert("x-tkpd-akamai", reqwest::header::HeaderValue::from_static("claimcoupon"));
-	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
-	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("c5fa3db"));
-	headers.insert("cookie", reqwest::header::HeaderValue::from_str(&cookie_content).unwrap());
+
 	//println!("Request Headers:\n{:?}", headers);
 	
 	let client = ClientBuilder::new()
@@ -162,7 +132,7 @@ async fn redeem(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
 	let result = client
 		.post("https://gql.tokopedia.com/graphql/redeemCoupon")
 		.header("Content-Type", "application/json")
-		.headers(headers)
+		.headers(header_redeem)
 		.body(body)
 		.version(Version::HTTP_2) 
 		.send()
@@ -263,6 +233,45 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 		}
 		Err(err) => Err(format!("Error: {:?}", err))
 	}
+}
+async fn redeem_builder(catalog_id: &str) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+	let body_json = json!([
+		{
+		  "operationName": "redeemCoupon",
+		  "variables": {
+			"catalog_id": catalog_id.parse::<i64>().unwrap(),
+			"is_gift": 0,
+			"gift_email": "",
+			"notes": ""
+		  },
+		  "query": "mutation redeemCoupon($catalog_id: Int, $is_gift: Int, $gift_user_id: Int, $gift_email: String, $notes: String) {\n  hachikoRedeem(catalog_id: $catalog_id, is_gift: $is_gift, gift_user_id: $gift_user_id, gift_email: $gift_email, notes: $notes, apiVersion: \"2.0.0\") {\n	coupons {\n	  id\n	  owner\n	  promo_id\n	  code\n	  title\n	  description\n	  cta\n	  cta_desktop\n	  __typename\n	}\n	reward_points\n	redeemMessage\n	__typename\n  }\n}\n"
+		}
+	  ]);
+	//println!("{body_json}");
+	Ok(body_json)
+}
+async fn header_redeem(cookie_content: &str) -> HeaderMap {
+	let mut headers = reqwest::header::HeaderMap::new();
+	headers.insert("Accept", reqwest::header::HeaderValue::from_static("*/*"));
+	headers.insert("Accept-Language", reqwest::header::HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
+	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
+	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
+	headers.insert("Priority", reqwest::header::HeaderValue::from_static("u=1, i"));
+	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK"));
+	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"8\", \"Google Chrome\";v=\"129\", \"Chromium\";v=\"129\""));
+	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
+	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
+	headers.insert("Sec-Fetch-Dest", reqwest::header::HeaderValue::from_static("empty"));
+	headers.insert("Sec-Fetch-Mode", reqwest::header::HeaderValue::from_static("cors"));
+	headers.insert("Sec-Fetch-Site", reqwest::header::HeaderValue::from_static("same-site"));
+	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"));
+	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
+	headers.insert("x-tkpd-akamai", reqwest::header::HeaderValue::from_static("claimcoupon"));
+	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
+	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("c5fa3db"));
+	headers.insert("cookie", reqwest::header::HeaderValue::from_str(&cookie_content).unwrap());
+    // Return the created headers
+    headers
 }
 fn format_duration(duration: Duration) -> String {
 	let hours = duration.num_hours();
