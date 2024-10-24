@@ -120,7 +120,7 @@ async fn redeem(body_json: serde_json::Value, header_redeem: HeaderMap) -> Resul
 	
 	let client = ClientBuilder::new()
 		.danger_accept_invalid_certs(true)
-		.impersonate_without_headers((Impersonate::Chrome129)
+		.impersonate_without_headers(Impersonate::Chrome129)
 		.enable_ech_grease()
 		.permute_extensions()
 		.gzip(true)
@@ -190,7 +190,7 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
 	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
 	headers.insert("Priority", reqwest::header::HeaderValue::from_static("u=1, i"));
-	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/GC25OCTA));
+	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/GC25OCTA"));
 	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"8\", \"Google Chrome\";v=\"129\", \"Chromium\";v=\"129\""));
 	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
 	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
@@ -206,7 +206,7 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 	
 	let client = ClientBuilder::new()
 		.danger_accept_invalid_certs(true)
-		.impersonate_without_headers((Impersonate::Chrome129)
+		.impersonate_without_headers(Impersonate::Chrome129)
 		.enable_ech_grease()
 		.permute_extensions()
 		.gzip(true)
