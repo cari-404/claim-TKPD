@@ -1,11 +1,10 @@
 /*
+Whats new In 2.1.7 :
+regular update
 Whats new In 2.1.6 :
 new algorithm method
 Whats new In 2.1.5 :
 update headers
-Whats new In 2.1.4 :
-max retry to 3
-add priority 1
 */
 
 use rquest as reqwest;
@@ -121,7 +120,7 @@ async fn redeem(body_json: serde_json::Value, header_redeem: HeaderMap) -> Resul
 	
 	let client = ClientBuilder::new()
 		.danger_accept_invalid_certs(true)
-		.impersonate_with_headers(Impersonate::Chrome127, false)
+		.impersonate_without_headers((Impersonate::Chrome129)
 		.enable_ech_grease()
 		.permute_extensions()
 		.gzip(true)
@@ -191,7 +190,7 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
 	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
 	headers.insert("Priority", reqwest::header::HeaderValue::from_static("u=1, i"));
-	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK"));
+	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/GC25OCTA));
 	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"8\", \"Google Chrome\";v=\"129\", \"Chromium\";v=\"129\""));
 	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
 	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
@@ -201,13 +200,13 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 	headers.insert("user-agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"));
 	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
 	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
-	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("c5fa3db"));
+	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("2e4ea1e"));
 	headers.insert("cookie", reqwest::header::HeaderValue::from_str(&cookie_content).unwrap());
 	//println!("Request Headers:\n{:?}", headers);
 	
 	let client = ClientBuilder::new()
 		.danger_accept_invalid_certs(true)
-		.impersonate_with_headers(Impersonate::Chrome127, false)
+		.impersonate_without_headers((Impersonate::Chrome129)
 		.enable_ech_grease()
 		.permute_extensions()
 		.gzip(true)
@@ -257,7 +256,7 @@ async fn header_redeem(cookie_content: &str) -> HeaderMap {
 	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
 	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
 	headers.insert("Priority", reqwest::header::HeaderValue::from_static("u=1, i"));
-	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/KK"));
+	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/GC25OCTA"));
 	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"8\", \"Google Chrome\";v=\"129\", \"Chromium\";v=\"129\""));
 	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
 	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
@@ -268,7 +267,7 @@ async fn header_redeem(cookie_content: &str) -> HeaderMap {
 	headers.insert("X-Source", reqwest::header::HeaderValue::from_static("tokopedia-lite"));
 	headers.insert("x-tkpd-akamai", reqwest::header::HeaderValue::from_static("claimcoupon"));
 	headers.insert("X-Tkpd-Lite-Service", reqwest::header::HeaderValue::from_static("zeus"));
-	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("c5fa3db"));
+	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("2e4ea1e"));
 	headers.insert("cookie", reqwest::header::HeaderValue::from_str(&cookie_content).unwrap());
     // Return the created headers
     headers
