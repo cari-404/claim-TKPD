@@ -1,10 +1,10 @@
 /*
+Whats new In 2.1.8 :
+fix trim cookie
 Whats new In 2.1.7 :
 regular update
 Whats new In 2.1.6 :
 new algorithm method
-Whats new In 2.1.5 :
-update headers
 */
 
 use rquest as reqwest;
@@ -371,8 +371,15 @@ fn select_cookie_file() -> String {
 	selected_file
 }
 fn read_cookie_file(file_name: &str) -> String {
-	let file_path = format!("./akun/{}", file_name);
-	let mut cookie_content = String::new();
-	File::open(&file_path).expect("REASON").read_to_string(&mut cookie_content);
-	cookie_content
+    let file_path = format!("./akun/{}", file_name);
+    let file = File::open(&file_path);
+    let mut cookie_content = String::new();
+    let _ = file.expect("REASON").read_to_string(&mut cookie_content);
+    // Trim and return the content
+    let trimmed_content = cookie_content.trim().to_string();
+    if trimmed_content.is_empty() {
+        " ".to_string()
+    } else {
+        trimmed_content
+    }
 }
