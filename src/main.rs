@@ -121,8 +121,8 @@ async fn redeem(body_json: serde_json::Value, header_redeem: HeaderMap) -> Resul
 	let client = ClientBuilder::new()
 		.danger_accept_invalid_certs(true)
 		.impersonate_without_headers(Impersonate::Chrome129)
-		.enable_ech_grease()
-		.permute_extensions()
+		.enable_ech_grease(true)
+		.permute_extensions(true)
 		.gzip(true)
 		.build()
 		.map_err(|e| format!("Failed to build reqwest client: {:?}", e))?;
@@ -207,8 +207,8 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 	let client = ClientBuilder::new()
 		.danger_accept_invalid_certs(true)
 		.impersonate_without_headers(Impersonate::Chrome129)
-		.enable_ech_grease()
-		.permute_extensions()
+		.enable_ech_grease(true)
+		.permute_extensions(true)
 		.gzip(true)
 		.build()
 		.map_err(|e| format!("Failed to build reqwest client: {:?}", e))?;
