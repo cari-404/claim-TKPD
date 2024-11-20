@@ -1,23 +1,37 @@
 /*
+Whats new In 2.1.9 :
+new algorithm method (Like save voucher Shopee.co.id process aka Claim-SHID)
 Whats new In 2.1.8 :
 fix trim cookie
 Whats new In 2.1.7 :
 regular update
-Whats new In 2.1.6 :
-new algorithm method
 */
 
 use rquest as reqwest;
 use reqwest::tls::Impersonate;
-use reqwest::{Client, Error as ReqwestError, ClientBuilder, header::HeaderMap, Body, Version};
+use reqwest::{ClientBuilder, header::HeaderMap, Version};
 use reqwest::header::HeaderValue;
-use serde_json::{json, Value};
-use std::thread;
-use std::time::Duration as StdDuration;
+use serde_json::{Value};
 use std::fs::File;
 use std::io::{self, Read, Write};
 use chrono::{Local, Duration, NaiveDateTime};
 use structopt::StructOpt;
+use serde::Serialize;
+
+#[derive(Serialize)]
+struct RedeemCouponVariables {
+    catalog_id: i64,
+    is_gift: i32,
+    gift_email: String,
+    notes: String,
+}
+
+#[derive(Serialize)]
+struct RedeemCouponRequest {
+    operation_name: String,
+    variables: RedeemCouponVariables,
+    query: String,
+}
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "Auto Claim Tokopedia", about = "Make fast claim Voucher from tokopedia.com")]
@@ -28,8 +42,13 @@ struct Opt {
 	time: Option<String>,	
 	#[structopt(short, long, help = "Set catalog_id")]
 	catalog: Option<String>,
-	#[structopt(short, long, help = "No Validate Steps")]
-	no_validate: bool,
+    #[structopt(short, long, help = "select modes")]
+	mode: Option<String>,
+}
+
+enum Mode {
+	Fast,
+	Normal,
 }
 
 fn clear_screen() {
@@ -46,6 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("{}", format!("Claim Voucher Tokopedia [Version {}]", version_info));
 	println!("Native Version");
 	println!("");
+	let mode = select_mode(&opt);
 
 	// Get account details
 	let selected_file = opt.file.clone().unwrap_or_else(|| select_cookie_file());
@@ -55,136 +75,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		
 	// Get target URL
 	let catalog_id = opt.catalog.clone().unwrap_or_else(|| get_user_input("catalog_id: "));
-	let redeem_body = redeem_builder(&catalog_id).await?;
-	let header_redeem = header_redeem(&cookie_content).await;
-	let task_time_dt = parse_task_time(&task_time_str)?;
-	// Process HTTP with common function
-	countdown_to_task(task_time_dt).await;
-	if !opt.no_validate{
-		validate_with_retry(&catalog_id, &cookie_content).await?;
+	let catalog_id_itr = catalog_id.parse::<i64>()?; 
+	match mode {
+		Mode::Normal => {
+			let task_time_dt = parse_task_time(&task_time_str)?;
+			countdown_to_task(task_time_dt).await;
+
+			validate(catalog_id_itr, &cookie_content).await?;
+			redeem_builder(catalog_id_itr, &cookie_content).await?;
+		}
+		Mode::Fast => {
+			let task_time_dt = parse_task_time(&task_time_str)?;
+			countdown_to_task(task_time_dt).await;
+			
+			redeem_builder(catalog_id_itr, &cookie_content).await?;
+		}
 	}
-	redeem_with_retry(redeem_body, header_redeem).await?;
 	println!("\nTask completed! Current time: {}", Local::now().format("%H:%M:%S.%3f"));
 	Ok(())	
 }
 
-async fn redeem_with_retry(redeem_body: serde_json::Value, header_redeem: HeaderMap) -> Result<(), String> {
-	const MAX_RETRIES: usize = 3;
-	let mut retries = 0;
-
-	while retries < MAX_RETRIES {
-		match redeem(redeem_body.clone(), header_redeem.clone()).await {
-			Ok(_) => {
-				println!("Redeem successful!");
-				return Ok(());
-			}
-			Err(error) => {
-				println!("Error redeeming: {}", error);
-				retries += 1;
-				println!("Retrying... Attempt {}/{}", retries, MAX_RETRIES);
-				thread::sleep(StdDuration::from_millis(5)); // Adjust the sleep duration as needed
-			}
-		}
-	}
-	Err("Redeem failed after retries".to_string()) 
-}
-
-async fn validate_with_retry(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
-	const MAX_RETRIES: usize = 3;
-	let mut retries = 0;
-
-	while retries < MAX_RETRIES {
-		match validate(catalog_id, cookie_content).await {
-			Ok(_) => {
-				println!("Validation successful!");
-				return Ok(()); // Return Ok(()) to indicate success
-            }
-			Err(error) => {
-				println!("Error validating: {}", error);
-				retries += 1;
-				println!("Retrying... Attempt {}/{}", retries, MAX_RETRIES);
-				thread::sleep(StdDuration::from_secs_f64(0.5)); // Adjust the sleep duration as needed
-			}
-		}
-	}
-	Err("Validation failed after retries".to_string()) // Return an error if validation fails after retries
-}
-
-async fn redeem(body_json: serde_json::Value, header_redeem: HeaderMap) -> Result<(), String> {	
-	let body_str = serde_json::to_string(&body_json).map_err(|e| format!("Serialization error: {}", e))?;
-	let body = Body::from(body_str.clone());
-	println!("{:?}", body);
-	println!("\nsending Get Shopee request...");
-
-	//println!("Request Headers:\n{:?}", headers);
-	
-	let client = ClientBuilder::new()
-		.danger_accept_invalid_certs(true)
-		.impersonate_without_headers(Impersonate::Chrome129)
-		.enable_ech_grease(true)
-		.permute_extensions(true)
-		.gzip(true)
-		.build()
-		.map_err(|e| format!("Failed to build reqwest client: {:?}", e))?;
-
-	// Buat permintaan HTTP POST
-	let result = client
-		.post("https://gql.tokopedia.com/graphql/redeemCoupon")
-		.header("Content-Type", "application/json")
-		.headers(header_redeem)
-		.body(body)
-		.version(Version::HTTP_2) 
-		.send()
-		.await;
-	
-    match result {
-        Ok(response) => {
-            println!("Redeem Status: {}", response.status());
-            let body = response.text().await.map_err(|e| format!("Failed to read response body: {:?}", e))?;
-            println!("Body: {}", body);
-			// Parse the response body as an array
-			let json_response: Value = serde_json::from_str(&body).map_err(|e| format!("Failed to parse response body: {:?}", e))?;
-			let json_array = json_response.as_array().ok_or_else(|| format!("Response is not an array: {:?}", json_response))?;
-
-			// Iterate through the array to find the redeem message
-			for item in json_array {
-				if let Some(redeem_message) = item.pointer("/data/hachikoRedeem/redeemMessage") {
-					if redeem_message == "Kupon berhasil diklaim" {
-						println!("Coupon successfully claimed!");
-						return Ok(());
-					} else {
-						return Err(format!("Unexpected redeem message: {:?}", redeem_message));
-					}
-				} else {
-					return Err(format!("Redeem message not found in response: {:?}", json_response));
-				}
-			}
-			Ok(())
-        }
-        Err(err) => Err(format!("Error: {:?}", err))
-    }
-}
-
-async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> {
-
-	let body_json = json!([
-	  {
-		"operationName": "validateRedeem",
-		"variables": {
-		  "catalog_id": catalog_id.parse::<i64>().unwrap(),
-		  "is_gift": 0,
-		  "gift_email": ""
-		},
-		"query": "mutation validateRedeem($catalog_id: Int, $is_gift: Int, $gift_user_id: Int, $gift_email: String) {\n  hachikoValidateRedeem(catalog_id: $catalog_id, is_gift: $is_gift, gift_user_id: $gift_user_id, gift_email: $gift_email) {\n	is_valid\n	message_success\n	message_title\n	__typename\n  }\n}\n"
-	  }
-	]);
-	
-	let body_str = serde_json::to_string(&body_json).map_err(|e| format!("Serialization error: {}", e))?;
-	let body = Body::from(body_str.clone());
-	println!("{:?}", body);
-
-	println!("\nsending Get Shopee request...");
+async fn validate(catalog_id: i64, cookie_content: &str) -> Result<(), Box<dyn std::error::Error>> {
+	let body_json = vec![RedeemCouponRequest {
+        operation_name: "validateRedeem".to_string(),
+        variables: RedeemCouponVariables {
+            catalog_id,
+            is_gift: 0,
+            gift_email: "".to_string(),
+            notes: "".to_string(),
+        },
+        query: "mutation validateRedeem($catalog_id: Int, $is_gift: Int, $gift_user_id: Int, $gift_email: String) {\n  hachikoValidateRedeem(catalog_id: $catalog_id, is_gift: $is_gift, gift_user_id: $gift_user_id, gift_email: $gift_email) {\n	is_valid\n	message_success\n	message_title\n	__typename\n  }\n}\n".to_string(),
+    }];
+	let body_str = serde_json::to_string(&body_json)?;
+	println!("\nsending Get TKPD request...");
 	let mut headers = reqwest::header::HeaderMap::new();
+	headers.insert("Connection", HeaderValue::from_static("keep-alive"));
 	headers.insert("Accept", reqwest::header::HeaderValue::from_static("*/*"));
 	headers.insert("Accept-Language", reqwest::header::HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
 	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
@@ -203,54 +128,118 @@ async fn validate(catalog_id: &str, cookie_content: &str) -> Result<(), String> 
 	headers.insert("X-Version", reqwest::header::HeaderValue::from_static("2e4ea1e"));
 	headers.insert("cookie", reqwest::header::HeaderValue::from_str(&cookie_content).unwrap());
 	//println!("Request Headers:\n{:?}", headers);
-	
-	let client = ClientBuilder::new()
-		.danger_accept_invalid_certs(true)
-		.impersonate_without_headers(Impersonate::Chrome129)
-		.enable_ech_grease(true)
-		.permute_extensions(true)
-		.gzip(true)
-		.build()
-		.map_err(|e| format!("Failed to build reqwest client: {:?}", e))?;
+	loop{
+		let client = ClientBuilder::new()
+			.danger_accept_invalid_certs(true)
+			.impersonate_without_headers(Impersonate::Chrome130)
+			.enable_ech_grease(true)
+			.permute_extensions(true)
+			.gzip(true)
+			.build()?;
 
-	// Buat permintaan HTTP POST
-	let result = client
-		.post("https://gql.tokopedia.com/graphql/validateRedeem")
-		.header("Content-Type", "application/json")
-		.headers(headers)
-		.body(body)
-		.version(Version::HTTP_2) 
-		.send()
-		.await;
-	match result {
-		Ok(response) => {
-			println!("Validation Status: {}", response.status());
-			//println!("Headers: {:#?}", response.headers());
+		// Buat permintaan HTTP POST
+		let response = client
+			.post("https://gql.tokopedia.com/graphql/validateRedeem")
+			.header("Content-Type", "application/json")
+			.headers(headers.clone())
+			.body(body_str.clone())
+			.version(Version::HTTP_2) 
+			.send()
+			.await?;
+
+		let status = response.status();
+		println!("Validation Status: {}", status);
+		//println!("Headers: {:#?}", response.headers());
+		if status == reqwest::StatusCode::OK {
 			let body = response.text().await.unwrap();
 			println!("Body: {}", body);
-			Ok(())
+			break;
+		}else{
+			continue;
 		}
-		Err(err) => Err(format!("Error: {:?}", err))
+	}
+	Ok(())
+}
+
+async fn redeem_builder(catalog_id: i64, cookie_content: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let headers = header_redeem(&cookie_content).await;
+	let body_json = vec![RedeemCouponRequest {
+        operation_name: "redeemCoupon".to_string(),
+        variables: RedeemCouponVariables {
+            catalog_id,
+            is_gift: 0,
+            gift_email: "".to_string(),
+            notes: "".to_string(),
+        },
+        query: "mutation redeemCoupon($catalog_id: Int, $is_gift: Int, $gift_user_id: Int, $gift_email: String, $notes: String) {\n  hachikoRedeem(catalog_id: $catalog_id, is_gift: $is_gift, gift_user_id: $gift_user_id, gift_email: $gift_email, notes: $notes, apiVersion: \"2.0.0\") {\n	coupons {\n	  id\n	  owner\n	  promo_id\n	  code\n	  title\n	  description\n	  cta\n	  cta_desktop\n	  __typename\n	}\n	reward_points\n	redeemMessage\n	__typename\n  }\n}\n".to_string(),
+    }];
+	let body_str = serde_json::to_string(&body_json)?;
+	loop{
+		let client = ClientBuilder::new()
+			.danger_accept_invalid_certs(true)
+			.impersonate_without_headers(Impersonate::Chrome130)
+			.enable_ech_grease(true)
+			.permute_extensions(true)
+			.gzip(true)
+			.build()?;
+
+		// Buat permintaan HTTP POST
+		let response = client
+			.post("https://gql.tokopedia.com/graphql/redeemCoupon")
+			.header("Content-Type", "application/json")
+			.headers(headers.clone())
+			.body(body_str.clone())
+			.version(Version::HTTP_2) 
+			.send()
+			.await?;
+
+		let status = response.status();
+		println!("Redeem Status: {}", response.status());
+		let text = response.text().await?;
+		if status == reqwest::StatusCode::OK {
+			println!("Body: {}", text);
+			// Parse the response body as an array
+			let json_response: Value = serde_json::from_str(&text).map_err(|e| format!("Failed to parse response body: {:?}", e))?;
+			let json_array = json_response.as_array().ok_or_else(|| format!("Response is not an array: {:?}", json_response))?;
+
+			// Iterate through the array to find the redeem message
+			for item in json_array {
+				if let Some(redeem_message) = item.pointer("/data/hachikoRedeem/redeemMessage") {
+					if redeem_message == "Kupon berhasil diklaim" {
+						println!("Coupon successfully claimed!");
+						break;
+					} else {
+						println!("Unexpected redeem message: {:?}", redeem_message);
+						continue;
+					}
+				} else {
+					println!("Redeem message not found in response: {:?}", json_response);
+					continue;
+				}
+			}
+		}else{
+			continue;
+		}
 	}
 }
-async fn redeem_builder(catalog_id: &str) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-	let body_json = json!([
-		{
-		  "operationName": "redeemCoupon",
-		  "variables": {
-			"catalog_id": catalog_id.parse::<i64>().unwrap(),
-			"is_gift": 0,
-			"gift_email": "",
-			"notes": ""
-		  },
-		  "query": "mutation redeemCoupon($catalog_id: Int, $is_gift: Int, $gift_user_id: Int, $gift_email: String, $notes: String) {\n  hachikoRedeem(catalog_id: $catalog_id, is_gift: $is_gift, gift_user_id: $gift_user_id, gift_email: $gift_email, notes: $notes, apiVersion: \"2.0.0\") {\n	coupons {\n	  id\n	  owner\n	  promo_id\n	  code\n	  title\n	  description\n	  cta\n	  cta_desktop\n	  __typename\n	}\n	reward_points\n	redeemMessage\n	__typename\n  }\n}\n"
+fn select_mode(opt: &Opt) -> Mode {
+	loop {
+		println!("Pilih mode:");
+		println!("1. Normal");
+		println!("2. Cepat");
+
+        let input = opt.mode.clone().unwrap_or_else(|| get_user_input("Masukkan pilihan (1/2): "));
+
+		match input.trim() {
+			"1" => return Mode::Normal,
+			"2" => return Mode::Fast,
+			_ => println!("Pilihan tidak valid, coba lagi."),
 		}
-	  ]);
-	//println!("{body_json}");
-	Ok(body_json)
+	}
 }
 async fn header_redeem(cookie_content: &str) -> HeaderMap {
 	let mut headers = reqwest::header::HeaderMap::new();
+	headers.insert("Connection", reqwest::header::HeaderValue::from_static("keep-alive"));
 	headers.insert("Accept", reqwest::header::HeaderValue::from_static("*/*"));
 	headers.insert("Accept-Language", reqwest::header::HeaderValue::from_static("en-US,en;q=0.9,id;q=0.8"));
 	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
