@@ -1,10 +1,11 @@
 /*
+Whats new In 2.2.0 :
+Add max 3 retry for all requests
+Fix if coupon succesfully redeem
 Whats new In 2.1.9 :
 new algorithm method (Like save voucher Shopee.co.id process aka Claim-SHID)
 Whats new In 2.1.8 :
 fix trim cookie
-Whats new In 2.1.7 :
-regular update
 */
 
 use rquest as reqwest;
@@ -106,7 +107,6 @@ async fn validate(catalog_id: i64, cookie_content: &str) -> Result<(), Box<dyn s
         },
         query: "mutation validateRedeem($catalog_id: Int, $is_gift: Int, $gift_user_id: Int, $gift_email: String) {\n  hachikoValidateRedeem(catalog_id: $catalog_id, is_gift: $is_gift, gift_user_id: $gift_user_id, gift_email: $gift_email) {\n	is_valid\n	message_success\n	message_title\n	__typename\n  }\n}\n".to_string(),
     }];
-	let body_str = serde_json::to_string(&body_json)?;
 	println!("\nsending Get TKPD request...");
 	let mut headers = reqwest::header::HeaderMap::new();
 	headers.insert("Connection", HeaderValue::from_static("keep-alive"));
@@ -140,9 +140,8 @@ async fn validate(catalog_id: i64, cookie_content: &str) -> Result<(), Box<dyn s
 		// Buat permintaan HTTP POST
 		let response = client
 			.post("https://gql.tokopedia.com/graphql/validateRedeem")
-			.header("Content-Type", "application/json")
 			.headers(headers.clone())
-			.body(body_str.clone())
+			.json(&body_json)
 			.version(Version::HTTP_2) 
 			.send()
 			.await?;
@@ -151,7 +150,7 @@ async fn validate(catalog_id: i64, cookie_content: &str) -> Result<(), Box<dyn s
 		println!("Validation Status: {}", status);
 		//println!("Headers: {:#?}", response.headers());
 		if status == reqwest::StatusCode::OK {
-			let body = response.text().await.unwrap();
+			let body: Value = response.json().await?;
 			println!("Body: {}", body);
 			break;
 		}else{
@@ -173,8 +172,16 @@ async fn redeem_builder(catalog_id: i64, cookie_content: &str) -> Result<(), Box
         },
         query: "mutation redeemCoupon($catalog_id: Int, $is_gift: Int, $gift_user_id: Int, $gift_email: String, $notes: String) {\n  hachikoRedeem(catalog_id: $catalog_id, is_gift: $is_gift, gift_user_id: $gift_user_id, gift_email: $gift_email, notes: $notes, apiVersion: \"2.0.0\") {\n	coupons {\n	  id\n	  owner\n	  promo_id\n	  code\n	  title\n	  description\n	  cta\n	  cta_desktop\n	  __typename\n	}\n	reward_points\n	redeemMessage\n	__typename\n  }\n}\n".to_string(),
     }];
-	let body_str = serde_json::to_string(&body_json)?;
+	let mut attempt = 0;
+	let max_attempts = 3;
+
 	loop{
+	    if attempt >= max_attempts {
+			println!("Mencapai batas maksimum {} percobaan.", max_attempts);
+			break Ok(());
+		}
+		attempt += 1;
+		println!("Percobaan ke-{}", attempt);
 		let client = ClientBuilder::new()
 			.danger_accept_invalid_certs(true)
 			.impersonate_without_headers(Impersonate::Chrome130)
@@ -186,27 +193,27 @@ async fn redeem_builder(catalog_id: i64, cookie_content: &str) -> Result<(), Box
 		// Buat permintaan HTTP POST
 		let response = client
 			.post("https://gql.tokopedia.com/graphql/redeemCoupon")
-			.header("Content-Type", "application/json")
 			.headers(headers.clone())
-			.body(body_str.clone())
+			.json(&body_json)
 			.version(Version::HTTP_2) 
 			.send()
 			.await?;
 
 		let status = response.status();
-		println!("Redeem Status: {}", response.status());
-		let text = response.text().await?;
+		println!("[{}]Redeem Status: {}", Local::now().format("%H:%M:%S.%3f"), response.status());
+		let json_response: Value = response.json().await?;
 		if status == reqwest::StatusCode::OK {
-			println!("Body: {}", text);
+			println!("Body: {}", json_response);
 			// Parse the response body as an array
-			let json_response: Value = serde_json::from_str(&text).map_err(|e| format!("Failed to parse response body: {:?}", e))?;
 			let json_array = json_response.as_array().ok_or_else(|| format!("Response is not an array: {:?}", json_response))?;
 
 			// Iterate through the array to find the redeem message
+			let mut success = false;
 			for item in json_array {
 				if let Some(redeem_message) = item.pointer("/data/hachikoRedeem/redeemMessage") {
 					if redeem_message == "Kupon berhasil diklaim" {
 						println!("Coupon successfully claimed!");
+						success = true;
 						break;
 					} else {
 						println!("Unexpected redeem message: {:?}", redeem_message);
@@ -216,6 +223,9 @@ async fn redeem_builder(catalog_id: i64, cookie_content: &str) -> Result<(), Box
 					println!("Redeem message not found in response: {:?}", json_response);
 					continue;
 				}
+			}
+			if success {
+				break Ok(());
 			}
 		}else{
 			continue;
