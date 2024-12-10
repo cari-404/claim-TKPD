@@ -1,11 +1,11 @@
 /*
+Whats new In 2.2.1 :
+Add Slug mode
 Whats new In 2.2.0 :
 Add max 3 retry for all requests
 Fix if coupon succesfully redeem
 Whats new In 2.1.9 :
 new algorithm method (Like save voucher Shopee.co.id process aka Claim-SHID)
-Whats new In 2.1.8 :
-fix trim cookie
 */
 
 use rquest as reqwest;
@@ -19,6 +19,16 @@ use chrono::{Local, Duration, NaiveDateTime};
 use structopt::StructOpt;
 use serde::Serialize;
 
+#[derive(Serialize)]
+struct SlugRequest {
+    operation_name: String,
+    variables: SlugVariables,
+    query: String,
+}
+#[derive(Serialize)]
+struct SlugVariables {
+    slug: String,
+}
 #[derive(Serialize)]
 struct RedeemCouponVariables {
     catalog_id: i64,
@@ -49,6 +59,7 @@ struct Opt {
 
 enum Mode {
 	Fast,
+	FastSlug,
 	Normal,
 }
 
@@ -73,23 +84,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let cookie_content = read_cookie_file(&selected_file);
 	
 	let task_time_str = opt.time.clone().unwrap_or_else(|| get_user_input("Enter task time (HH:MM:SS.NNNNNNNNN): "));
+	let mut slug = "GC10DECA";
 		
-	// Get target URL
-	let catalog_id = opt.catalog.clone().unwrap_or_else(|| get_user_input("catalog_id: "));
-	let catalog_id_itr = catalog_id.parse::<i64>()?; 
 	match mode {
+		Mode::FastSlug => {
+			let slug_value = opt.catalog.clone().unwrap_or_else(|| get_user_input("slug: "));
+			slug = &slug_value; 
+			let catalog_id_itr = get_catalog_id(&slug, &cookie_content).await?;
+			let task_time_dt = parse_task_time(&task_time_str)?;
+			countdown_to_task(task_time_dt).await;
+			
+			redeem_builder(&slug, catalog_id_itr, &cookie_content).await?;
+		}
 		Mode::Normal => {
+			let catalog_id = opt.catalog.clone().unwrap_or_else(|| get_user_input("catalog_id: "));
+			let catalog_id_itr = catalog_id.parse::<i64>()?; 
 			let task_time_dt = parse_task_time(&task_time_str)?;
 			countdown_to_task(task_time_dt).await;
 
 			validate(catalog_id_itr, &cookie_content).await?;
-			redeem_builder(catalog_id_itr, &cookie_content).await?;
+			redeem_builder(&slug, catalog_id_itr, &cookie_content).await?;
 		}
 		Mode::Fast => {
+			let catalog_id = opt.catalog.clone().unwrap_or_else(|| get_user_input("catalog_id: "));
+			let catalog_id_itr = catalog_id.parse::<i64>()?; 
 			let task_time_dt = parse_task_time(&task_time_str)?;
 			countdown_to_task(task_time_dt).await;
 			
-			redeem_builder(catalog_id_itr, &cookie_content).await?;
+			redeem_builder(&slug, catalog_id_itr, &cookie_content).await?;
 		}
 	}
 	println!("\nTask completed! Current time: {}", Local::now().format("%H:%M:%S.%3f"));
@@ -160,8 +182,8 @@ async fn validate(catalog_id: i64, cookie_content: &str) -> Result<(), Box<dyn s
 	Ok(())
 }
 
-async fn redeem_builder(catalog_id: i64, cookie_content: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let headers = header_redeem(&cookie_content).await;
+async fn redeem_builder(slug: &str, catalog_id: i64, cookie_content: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let headers = header_redeem(&slug, &cookie_content).await;
 	let body_json = vec![RedeemCouponRequest {
         operation_name: "redeemCoupon".to_string(),
         variables: RedeemCouponVariables {
@@ -232,22 +254,72 @@ async fn redeem_builder(catalog_id: i64, cookie_content: &str) -> Result<(), Box
 		}
 	}
 }
+
+async fn get_catalog_id(slug: &str, cookie_content: &str) -> Result<i64, Box<dyn std::error::Error>> {
+    let headers = header_redeem(&slug, &cookie_content).await;
+	let body_json = vec![SlugRequest {
+        operation_name: "CatalogDetailQuery".to_string(),
+        variables: SlugVariables {
+			slug: slug.to_string(),
+        },
+        query: "query CatalogDetailQuery($slug: String) {\n  tokopoints {\n    status {\n      points {\n        reward\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n  hachikoCatalogDetail(slug: $slug, apiVersion: \"3.0.0\") {\n    id\n    title\n    expired_label\n    expired_str\n    is_disabled\n    is_disabled_button\n    disable_error_message\n    upper_text_desc\n    how_to_use\n    tnc\n    icon\n    quotaPercentage\n    is_gift\n    points_str\n    button_str\n    points_slash_str\n    discount_percentage_str\n    minimumUsageLabel\n    minimumUsage\n    product_recommendation {\n      is_show\n      param\n      __typename\n    }\n    activePeriod\n    activePeriodDate\n    globalPromoCodes {\n      title\n      code\n      dynamicInfos\n      __typename\n    }\n    actionCTA {\n      text\n      url\n      type\n      isShown\n      isDisabled\n      __typename\n    }\n    catalog_type\n    __typename\n  }\n}\n".to_string(),
+    }];
+
+	loop{
+		let client = ClientBuilder::new()
+			.danger_accept_invalid_certs(true)
+			.impersonate_without_headers(Impersonate::Chrome130)
+			.enable_ech_grease(true)
+			.permute_extensions(true)
+			.gzip(true)
+			.build()?;
+
+		// Buat permintaan HTTP POST
+		let response = client
+			.post("https://gql.tokopedia.com/graphql/CatalogDetailQuery")
+			.headers(headers.clone())
+			.json(&body_json)
+			.version(Version::HTTP_2) 
+			.send()
+			.await?;
+
+		let status = response.status();
+		println!("[{}]Redeem Status: {}", Local::now().format("%H:%M:%S.%3f"), response.status());
+		let json_response: Value = response.json().await?;
+		if status == reqwest::StatusCode::OK {
+			println!("Body: {}", json_response);
+			// Parse the response body as an array
+			// Extract the ID
+			if let Some(id) = json_response[0]["data"]["hachikoCatalogDetail"]["id"].as_i64() {
+				println!("ID: {}", id);
+				return Ok(id);
+			} else {
+				println!("ID not found");
+			}
+		}else{
+			println!("Permintaan gagal dengan status: {}", status);
+		}
+	}
+}
 fn select_mode(opt: &Opt) -> Mode {
 	loop {
 		println!("Pilih mode:");
 		println!("1. Normal");
 		println!("2. Cepat");
+		println!("3. Slug");
 
-        let input = opt.mode.clone().unwrap_or_else(|| get_user_input("Masukkan pilihan (1/2): "));
+        let input = opt.mode.clone().unwrap_or_else(|| get_user_input("Masukkan pilihan: "));
 
 		match input.trim() {
 			"1" => return Mode::Normal,
 			"2" => return Mode::Fast,
+			"3" => return Mode::FastSlug,
 			_ => println!("Pilihan tidak valid, coba lagi."),
 		}
 	}
 }
-async fn header_redeem(cookie_content: &str) -> HeaderMap {
+async fn header_redeem(slug: &str, cookie_content: &str) -> HeaderMap {
+	let refe = format!("https://www.tokopedia.com/rewards/kupon/detail/{}", slug);
 	let mut headers = reqwest::header::HeaderMap::new();
 	headers.insert("Connection", reqwest::header::HeaderValue::from_static("keep-alive"));
 	headers.insert("Accept", reqwest::header::HeaderValue::from_static("*/*"));
@@ -255,7 +327,7 @@ async fn header_redeem(cookie_content: &str) -> HeaderMap {
 	headers.insert("Content-Type", reqwest::header::HeaderValue::from_static("application/json"));
 	headers.insert("Origin", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com"));
 	headers.insert("Priority", reqwest::header::HeaderValue::from_static("u=1, i"));
-	headers.insert("Referer", reqwest::header::HeaderValue::from_static("https://www.tokopedia.com/rewards/kupon/detail/GC25OCTA"));
+	headers.insert("Referer", reqwest::header::HeaderValue::from_str(&refe).unwrap());
 	headers.insert("Sec-Ch-Ua", reqwest::header::HeaderValue::from_static("\"Not A(Brand\";v=\"8\", \"Google Chrome\";v=\"129\", \"Chromium\";v=\"129\""));
 	headers.insert("Sec-Ch-Ua-Mobile", reqwest::header::HeaderValue::from_static("?0"));
 	headers.insert("Sec-Ch-Ua-Platform", reqwest::header::HeaderValue::from_static("\"Windows\""));
