@@ -1,11 +1,11 @@
 /*
+Whats new In 2.2.2 :
+Add multiple thread for redeem request
 Whats new In 2.2.1 :
 Add Slug mode
 Whats new In 2.2.0 :
 Add max 3 retry for all requests
 Fix if coupon succesfully redeem
-Whats new In 2.1.9 :
-new algorithm method (Like save voucher Shopee.co.id process aka Claim-SHID)
 */
 
 use rquest as reqwest;
@@ -18,6 +18,8 @@ use std::io::{self, Read, Write};
 use chrono::{Local, Duration, NaiveDateTime};
 use structopt::StructOpt;
 use serde::Serialize;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Serialize)]
 struct SlugRequest {
@@ -29,7 +31,7 @@ struct SlugRequest {
 struct SlugVariables {
     slug: String,
 }
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct RedeemCouponVariables {
     catalog_id: i64,
     is_gift: i32,
@@ -37,7 +39,7 @@ struct RedeemCouponVariables {
     notes: String,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct RedeemCouponRequest {
     operation_name: String,
     variables: RedeemCouponVariables,
@@ -194,65 +196,100 @@ async fn redeem_builder(slug: &str, catalog_id: i64, cookie_content: &str) -> Re
         },
         query: "mutation redeemCoupon($catalog_id: Int, $is_gift: Int, $gift_user_id: Int, $gift_email: String, $notes: String) {\n  hachikoRedeem(catalog_id: $catalog_id, is_gift: $is_gift, gift_user_id: $gift_user_id, gift_email: $gift_email, notes: $notes, apiVersion: \"2.0.0\") {\n	coupons {\n	  id\n	  owner\n	  promo_id\n	  code\n	  title\n	  description\n	  cta\n	  cta_desktop\n	  __typename\n	}\n	reward_points\n	redeemMessage\n	__typename\n  }\n}\n".to_string(),
     }];
-	let mut attempt = 0;
-	let max_attempts = 3;
+    let max_threads = if num_cpus::get() > 4 { 
+        num_cpus::get() 
+    } else {
+        4 
+    }; 
+	let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(max_threads);
+	let stop_flag = Arc::new(AtomicBool::new(false));
+    for i in 0..max_threads {
+        let headers = headers.clone();
+        let body_json = body_json.clone();
+        let tx = tx.clone();
+        let stop_flag = stop_flag.clone();
 
-	loop{
-	    if attempt >= max_attempts {
-			println!("Mencapai batas maksimum {} percobaan.", max_attempts);
-			break Ok(());
-		}
-		attempt += 1;
-		println!("Percobaan ke-{}", attempt);
-		let client = ClientBuilder::new()
-			.danger_accept_invalid_certs(true)
-			.impersonate_without_headers(Impersonate::Chrome130)
-			.enable_ech_grease(true)
-			.permute_extensions(true)
-			.gzip(true)
-			.build()?;
+        tokio::spawn(async move {
+            let client = ClientBuilder::new()
+                .danger_accept_invalid_certs(true)
+                .gzip(true)
+                .build()
+                .expect("Failed to build HTTP client");
 
-		// Buat permintaan HTTP POST
-		let response = client
-			.post("https://gql.tokopedia.com/graphql/redeemCoupon")
-			.headers(headers.clone())
-			.json(&body_json)
-			.version(Version::HTTP_2) 
-			.send()
-			.await?;
+            let mut attempt = 0;
+            let max_attempts = 3;
 
-		let status = response.status();
-		println!("[{}]Redeem Status: {}", Local::now().format("%H:%M:%S.%3f"), response.status());
-		let json_response: Value = response.json().await?;
-		if status == reqwest::StatusCode::OK {
-			println!("Body: {}", json_response);
-			// Parse the response body as an array
-			let json_array = json_response.as_array().ok_or_else(|| format!("Response is not an array: {:?}", json_response))?;
+            while !stop_flag.load(Ordering::Relaxed) {
+                if attempt >= max_attempts {
+                    eprintln!("Thread {}: Mencapai batas maksimum {} percobaan.", i, max_attempts);
+                    break;
+                }
+                attempt += 1;
+                println!("Thread {}: Percobaan ke-{}", i, attempt);
 
-			// Iterate through the array to find the redeem message
-			let mut success = false;
-			for item in json_array {
-				if let Some(redeem_message) = item.pointer("/data/hachikoRedeem/redeemMessage") {
-					if redeem_message == "Kupon berhasil diklaim" {
-						println!("Coupon successfully claimed!");
-						success = true;
-						break;
-					} else {
-						println!("Unexpected redeem message: {:?}", redeem_message);
-						continue;
-					}
-				} else {
-					println!("Redeem message not found in response: {:?}", json_response);
-					continue;
-				}
-			}
-			if success {
-				break Ok(());
-			}
-		}else{
-			continue;
-		}
-	}
+                // Kirim request
+                let response = match client
+                    .post("https://gql.tokopedia.com/graphql/redeemCoupon")
+                    .headers(headers.clone())
+                    .json(&body_json)
+                    .version(Version::HTTP_2)
+                    .send()
+                    .await
+                {
+                    Ok(res) => res,
+                    Err(err) => {
+                        eprintln!("Thread {}: Gagal mengirim request: {:?}", i, err);
+                        continue;
+                    }
+                };
+
+                let status = response.status();
+                let json_response: Value = match response.json().await {
+                    Ok(json) => json,
+                    Err(err) => {
+                        eprintln!("Thread {}: Gagal membaca JSON: {:?}", i, err);
+                        continue;
+                    }
+                };
+
+                println!(
+                    "[{}][Thread {}] Redeem Status: {}",
+                    Local::now().format("%H:%M:%S.%3f"),
+                    i,
+                    status
+                );
+
+                if status == reqwest::StatusCode::OK {
+                    if let Some(redeem_message) = json_response
+                        .pointer("/data/hachikoRedeem/redeemMessage")
+                        .and_then(|val| val.as_str())
+                    {
+                        if redeem_message == "Kupon berhasil diklaim" {
+                            println!("[Thread {}] Coupon successfully claimed!", i);
+                            let _ = tx.send("Coupon successfully claimed!".to_string()).await;
+                            stop_flag.store(true, Ordering::Relaxed);
+                            break;
+                        } else {
+                            println!(
+                                "[Thread {}] Unexpected redeem message: {}",
+                                i, redeem_message
+                            );
+                        }
+                    } else {
+                        println!(
+                            "[Thread {}] Redeem message not found in response: {:?}",
+                            i, json_response
+                        );
+                    }
+                }
+            }
+        });
+    }
+    drop(tx); // Tutup pengirim setelah semua tugas selesai
+    while let Some(message) = rx.recv().await {
+        println!("{}", message);
+    }
+	Ok(())
 }
 
 async fn get_catalog_id(slug: &str, cookie_content: &str) -> Result<i64, Box<dyn std::error::Error>> {
